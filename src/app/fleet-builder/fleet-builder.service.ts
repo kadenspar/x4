@@ -22,7 +22,11 @@ export class FleetBuilderService {
   private readonly ships: Ship[];
   private readonly equipment: Equipment[];
   private readonly slotGroupCache: { [key: string]: HardwareSlotGroup[] } = {};
+  private readonly bulkGroupCache: { [key: string]: HardwareBulkGroup[] } = {};
   private readonly compatibilityCache: { [key: string]: Equipment[] } = {};
+  private readonly bulkOptionCache: { [key: string]: Equipment[] } = {};
+  private readonly consumableOptionCache: { [key: string]: Equipment[] } = {};
+  private readonly missingHardwareCache: { [key: string]: boolean } = {};
 
   constructor(private shipService: ShipService,
               private equipmentService: EquipmentService,
@@ -55,7 +59,11 @@ export class FleetBuilderService {
   }
 
   getConsumableOptions(ship: Ship): Equipment[] {
-    return this.equipment.filter(x => {
+    if (this.consumableOptionCache[ship.id]) {
+      return this.consumableOptionCache[ship.id];
+    }
+
+    const values = this.equipment.filter(x => {
       if (x.type === EquipmentType.countermeasures) {
         return true;
       }
@@ -70,6 +78,9 @@ export class FleetBuilderService {
 
       return false;
     });
+
+    this.consumableOptionCache[ship.id] = values;
+    return values;
   }
 
   getSlotGroups(ship: Ship): HardwareSlotGroup[] {
@@ -102,6 +113,10 @@ export class FleetBuilderService {
   }
 
   getBulkGroups(ship: Ship): HardwareBulkGroup[] {
+    if (this.bulkGroupCache[ship.id]) {
+      return this.bulkGroupCache[ship.id];
+    }
+
     const map: { [key: string]: HardwareBulkGroup } = {};
 
     this.getSlotGroups(ship).forEach(group => {
@@ -118,9 +133,12 @@ export class FleetBuilderService {
       map[key].slotGroupIds.push(group.id);
     });
 
-    return Object.keys(map)
+    const values = Object.keys(map)
       .map(key => map[key])
       .sort((a, b) => a.label.localeCompare(b.label));
+
+    this.bulkGroupCache[ship.id] = values;
+    return values;
   }
 
   getCompatibleEquipment(ship: Ship, group: HardwareSlotGroup): Equipment[] {
@@ -138,6 +156,11 @@ export class FleetBuilderService {
   }
 
   getBulkOptions(ship: Ship, bulk: HardwareBulkGroup): Equipment[] {
+    const cacheKey = ship.id + '|' + bulk.id;
+    if (this.bulkOptionCache[cacheKey]) {
+      return this.bulkOptionCache[cacheKey];
+    }
+
     const byName: { [key: string]: Equipment } = {};
     const groupIds = new Set(bulk.slotGroupIds);
 
@@ -150,14 +173,24 @@ export class FleetBuilderService {
         });
       });
 
-    return Object.keys(byName)
+    const values = Object.keys(byName)
       .map(key => byName[key])
       .sort((a, b) => a.name.localeCompare(b.name));
+
+    this.bulkOptionCache[cacheKey] = values;
+    return values;
   }
 
   hasMissingHardwareData(ship: Ship): boolean {
-    return this.getSlotGroups(ship)
+    if (Object.prototype.hasOwnProperty.call(this.missingHardwareCache, ship.id)) {
+      return this.missingHardwareCache[ship.id];
+    }
+
+    const value = this.getSlotGroups(ship)
       .some(group => this.getCompatibleEquipment(ship, group).length === 0);
+
+    this.missingHardwareCache[ship.id] = value;
+    return value;
   }
 
   isBoronShip(ship: Ship): boolean {

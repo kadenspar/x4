@@ -12,3 +12,17 @@
 .move {
     cursor: move;
 }
+
+.module-count-control {
+    min-width: 132px;
+}
+
+.module-count-input {
+    min-width: 52px;
+    max-width: 72px;
+}
+
+.module-count-button {
+    min-width: 40px;
+    touch-action: manipulation;
+}

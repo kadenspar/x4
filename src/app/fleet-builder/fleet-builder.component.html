@@ -1,0 +1,323 @@
+<div class="row content-row">
+  <div class="col-12">
+    <div class="card shadow mb-3">
+      <div class="card-header shadow-sm">
+        Fleet Builder
+      </div>
+      <div class="card-body">
+        <p class="small text-secondary">
+          Plan ship loadouts before sending them to your production facility. Hardware selections, consumables and software are included in the resource and credit totals.
+        </p>
+
+        <div class="fleet-toolbar mb-3">
+          <input class="form-control plan-name"
+                 type="text"
+                 placeholder="Fleet plan name"
+                 [(ngModel)]="plan.name">
+
+          <select class="form-select plan-method"
+                  [(ngModel)]="plan.productionMethod"
+                  (ngModelChange)="recalculate()">
+            <option *ngFor="let method of productionMethods" [value]="method.id">{{ method.name }} production</option>
+          </select>
+
+          <button type="button" class="btn btn-primary" (click)="savePlan()" [disabled]="!plan.name.trim()">
+            <i class="fa fa-save"></i>&nbsp;Save
+          </button>
+
+          <button type="button" class="btn btn-secondary" (click)="newPlan()">
+            <i class="fa fa-file"></i>&nbsp;New
+          </button>
+        </div>
+
+        <div class="fleet-toolbar mb-3" *ngIf="savedPlanNames.length">
+          <select class="form-select saved-plan" [(ngModel)]="selectedSavedPlanName">
+            <option value="">Saved fleet plans...</option>
+            <option *ngFor="let name of savedPlanNames" [value]="name">{{ name }}</option>
+          </select>
+          <button type="button" class="btn btn-info" (click)="loadPlan()" [disabled]="!selectedSavedPlanName">
+            <i class="fa fa-folder-open"></i>&nbsp;Load
+          </button>
+          <button type="button" class="btn btn-outline-danger" (click)="deletePlan()" [disabled]="!selectedSavedPlanName">
+            <i class="fa fa-trash"></i>&nbsp;Delete
+          </button>
+        </div>
+
+        <div class="fleet-add-row">
+          <select class="form-select ship-picker" [(ngModel)]="selectedShipId">
+            <option value="">Choose a ship...</option>
+            <option *ngFor="let ship of ships" [value]="ship.id">
+              {{ ship.name }} — {{ ship.size }} {{ ship.type }}
+            </option>
+          </select>
+          <button type="button" class="btn btn-success" (click)="addShip()" [disabled]="!selectedShipId">
+            <i class="fa fa-plus"></i>&nbsp;Add Ship
+          </button>
+        </div>
+
+        <div class="small text-secondary mt-2">
+          The selected production method is used where that recipe exists; otherwise the item's Universal/default recipe is used.
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="!plan.ships.length" class="alert alert-info">
+      Add a ship above to start building a fleet.
+    </div>
+
+    <div *ngFor="let entry of plan.ships" class="card shadow ship-card">
+      <ng-container *ngIf="getShip(entry) as ship">
+        <div class="card-header d-flex flex-wrap align-items-center gap-2">
+          <div class="ship-title">
+            <strong>{{ ship.name }}</strong>
+            <span class="small text-secondary"> — {{ ship.size }} {{ ship.type }}</span>
+          </div>
+
+          <div class="ship-actions">
+            <div class="input-group input-group-sm quantity-control">
+              <button type="button" class="btn btn-outline-secondary touch-button" (click)="adjustShipQuantity(entry, -1)" aria-label="Decrease ship quantity">
+                <i class="fa fa-minus"></i>
+              </button>
+              <input type="number"
+                     min="1"
+                     inputmode="numeric"
+                     class="form-control text-center"
+                     [(ngModel)]="entry.quantity"
+                     (ngModelChange)="normalizeShipQuantity(entry)">
+              <button type="button" class="btn btn-outline-secondary touch-button" (click)="adjustShipQuantity(entry, 1)" aria-label="Increase ship quantity">
+                <i class="fa fa-plus"></i>
+              </button>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-info" (click)="duplicateShip(entry)">
+              <i class="fa fa-copy"></i>&nbsp;Duplicate
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeShip(entry)">
+              <i class="fa fa-trash"></i>&nbsp;Remove
+            </button>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div *ngIf="getCompatibilityWarning(entry)" class="alert alert-warning small">
+            {{ getCompatibilityWarning(entry) }}
+          </div>
+
+          <div class="row">
+            <div class="col-xl-8 col-lg-7 col-12">
+              <h5>Hardware</h5>
+              <div class="small text-secondary mb-2">
+                Use the fill controls for a quick loadout, then override any individual slot group below.
+              </div>
+
+              <ng-container *ngFor="let section of hardwareSections">
+                <ng-container *ngIf="getGroupsByKind(entry, section.kind) as groups">
+                  <div *ngIf="groups.length" class="hardware-section">
+                    <h6>{{ section.label }}</h6>
+
+                    <ng-container *ngFor="let bulk of getBulkGroupsByKind(entry, section.kind)">
+                      <div *ngIf="bulk.slotGroupIds.length > 1" class="bulk-row">
+                        <span class="small text-secondary">{{ bulk.label }}</span>
+                        <select class="form-select form-select-sm"
+                                [(ngModel)]="entry.bulkSelections[bulk.id]">
+                          <option value="">None / clear compatible slots</option>
+                          <option *ngFor="let item of getBulkOptions(entry, bulk)" [value]="item.id">{{ item.name }}</option>
+                        </select>
+                        <button type="button" class="btn btn-sm btn-outline-primary" (click)="applyBulk(entry, bulk)">Apply</button>
+                      </div>
+                    </ng-container>
+
+                    <div *ngFor="let group of groups" class="slot-row">
+                      <div class="slot-label small">
+                        <strong>{{ group.label }}</strong>
+                        <span class="text-secondary"> — {{ group.count }} × {{ group.size }}</span>
+                      </div>
+
+                      <ng-container *ngIf="getCompatibleEquipment(entry, group) as options">
+                        <select class="form-select form-select-sm"
+                                [(ngModel)]="entry.selections[group.id]"
+                                (ngModelChange)="recalculate()"
+                                [disabled]="!options.length">
+                          <option value="">None</option>
+                          <option *ngFor="let item of options" [value]="item.id">{{ item.name }}</option>
+                        </select>
+                        <span *ngIf="!options.length" class="small text-warning">No compatible equipment data</span>
+                      </ng-container>
+                    </div>
+                  </div>
+                </ng-container>
+              </ng-container>
+            </div>
+
+            <div class="col-xl-4 col-lg-5 col-12 mt-3 mt-lg-0">
+              <div class="card mb-3">
+                <div class="card-header">Consumables</div>
+                <div class="card-body">
+                  <div class="add-row mb-2">
+                    <select class="form-select form-select-sm" [(ngModel)]="entry.pendingConsumableId">
+                      <option value="">Add missile, drone or countermeasure...</option>
+                      <option *ngFor="let item of getConsumableOptions(entry)" [value]="item.id">
+                        {{ item.name }} — {{ item.type }}
+                      </option>
+                    </select>
+                    <button type="button" class="btn btn-sm btn-outline-success" (click)="addConsumable(entry)" [disabled]="!entry.pendingConsumableId">
+                      Add
+                    </button>
+                  </div>
+
+                  <div *ngFor="let selected of getSelectedConsumables(entry)" class="selected-row">
+                    <div class="selected-name small">{{ selected.equipment.name }}</div>
+                    <div class="input-group input-group-sm consumable-quantity">
+                      <button type="button" class="btn btn-outline-secondary touch-button" (click)="adjustConsumable(entry, selected.equipment.id, -1)">
+                        <i class="fa fa-minus"></i>
+                      </button>
+                      <input type="number"
+                             min="0"
+                             inputmode="numeric"
+                             class="form-control text-center"
+                             [(ngModel)]="entry.consumables[selected.equipment.id]"
+                             (ngModelChange)="normalizeConsumable(entry, selected.equipment.id)">
+                      <button type="button" class="btn btn-outline-secondary touch-button" (click)="adjustConsumable(entry, selected.equipment.id, 1)">
+                        <i class="fa fa-plus"></i>
+                      </button>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeConsumable(entry, selected.equipment.id)">
+                      <i class="fa fa-times"></i>
+                    </button>
+                  </div>
+
+                  <div class="small mt-2" *ngIf="ship.storage?.missile">
+                    Missile storage: {{ getMissileCount(entry) }} / {{ ship.storage.missile }}
+                    <span class="text-danger" *ngIf="getMissileCount(entry) > ship.storage.missile"> — over capacity</span>
+                  </div>
+                  <div class="small" *ngIf="ship.storage?.unit">
+                    Drone/unit storage: {{ getDroneCount(entry) }} / {{ ship.storage.unit }}
+                    <span class="text-danger" *ngIf="getDroneCount(entry) > ship.storage.unit"> — over capacity</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-header">Software</div>
+                <div class="card-body">
+                  <div class="add-row mb-2">
+                    <select class="form-select form-select-sm" [(ngModel)]="entry.pendingSoftwareId">
+                      <option value="">Add software...</option>
+                      <option *ngFor="let item of getAvailableSoftware(entry)" [value]="item.id">{{ item.name }}</option>
+                    </select>
+                    <button type="button" class="btn btn-sm btn-outline-success" (click)="addSoftware(entry)" [disabled]="!entry.pendingSoftwareId">
+                      Add
+                    </button>
+                  </div>
+
+                  <div *ngFor="let item of getSelectedSoftware(entry)" class="selected-row">
+                    <div class="selected-name small">{{ item.name }}</div>
+                    <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeSoftware(entry, item.id)">
+                      <i class="fa fa-times"></i>
+                    </button>
+                  </div>
+
+                  <div *ngIf="!entry.software.length" class="small text-secondary">No software selected.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+    </div>
+
+    <div *ngIf="plan.ships.length" class="card shadow mb-3">
+      <div class="card-header shadow-sm">
+        Fleet Summary — {{ summary.shipCount }} ship{{ summary.shipCount === 1 ? '' : 's' }}
+      </div>
+      <div class="card-body">
+        <h5>Estimated configured fleet purchase cost</h5>
+        <div class="row g-2 mb-4">
+          <div class="col-md-4 col-12">
+            <div class="card cost-card">
+              <div class="card-body">
+                <div class="small text-secondary">Minimum</div>
+                <div class="summary-number">{{ summary.purchaseMin | number:'1.0-0' }} Cr</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4 col-12">
+            <div class="card cost-card">
+              <div class="card-body">
+                <div class="small text-secondary">Average</div>
+                <div class="summary-number">{{ summary.purchaseAvg | number:'1.0-0' }} Cr</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4 col-12">
+            <div class="card cost-card">
+              <div class="card-body">
+                <div class="small text-secondary">Maximum</div>
+                <div class="summary-number">{{ summary.purchaseMax | number:'1.0-0' }} Cr</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <h5>Required build resources</h5>
+        <div *ngIf="!summary.resources.length" class="alert alert-secondary small">
+          No manufacturing resources are currently selected. Configure ship hardware or consumables above.
+        </div>
+
+        <div *ngIf="summary.resources.length" class="table-responsive">
+          <table class="table table-sm table-hover">
+            <thead>
+            <tr>
+              <th>Resource</th>
+              <th class="text-end">Amount</th>
+              <th class="text-end">Min Cost</th>
+              <th class="text-end">Avg Cost</th>
+              <th class="text-end">Max Cost</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr *ngFor="let resource of summary.resources">
+              <td><a [routerLink]="['/wares', resource.ware.id]">{{ resource.ware.name }}</a></td>
+              <td class="text-end">{{ resource.amount | number:'1.0-0' }}</td>
+              <td class="text-end">{{ resource.priceMin | number:'1.0-0' }}</td>
+              <td class="text-end">{{ resource.priceAvg | number:'1.0-0' }}</td>
+              <td class="text-end">{{ resource.priceMax | number:'1.0-0' }}</td>
+            </tr>
+            </tbody>
+            <tfoot>
+            <tr>
+              <th colspan="2">Cost to buy required resources</th>
+              <th class="text-end">{{ summary.resourcePurchaseMin | number:'1.0-0' }}</th>
+              <th class="text-end">{{ summary.resourcePurchaseAvg | number:'1.0-0' }}</th>
+              <th class="text-end">{{ summary.resourcePurchaseMax | number:'1.0-0' }}</th>
+            </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <details class="mt-3">
+          <summary class="cursor-pointer">Build item breakdown</summary>
+          <div class="table-responsive mt-2">
+            <table class="table table-sm">
+              <thead>
+              <tr>
+                <th>Item</th>
+                <th>Type</th>
+                <th class="text-end">Qty</th>
+                <th class="text-end">Avg Cost</th>
+              </tr>
+              </thead>
+              <tbody>
+              <tr *ngFor="let item of summary.items">
+                <td>{{ item.name }}</td>
+                <td>{{ item.kind }}</td>
+                <td class="text-end">{{ item.quantity | number:'1.0-0' }}</td>
+                <td class="text-end">{{ item.priceAvg | number:'1.0-0' }}</td>
+              </tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+    </div>
+  </div>
+</div>

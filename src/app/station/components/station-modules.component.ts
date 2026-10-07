@@ -76,6 +76,22 @@ export class StationModulesComponent implements OnInit {
         this.change.emit();
     }
 
+    decrementCount(item: StationModuleModel) {
+        item.count = Math.max(0, Number(item.count || 0) - 1);
+        this.onChange();
+    }
+
+    incrementCount(item: StationModuleModel) {
+        item.count = Math.max(0, Number(item.count || 0) + 1);
+        this.onChange();
+    }
+
+    onCountChanged(item: StationModuleModel) {
+        const count = Number(item.count);
+        item.count = Number.isFinite(count) ? Math.max(0, Math.trunc(count)) : 0;
+        this.onChange();
+    }
+
     autofillModules() {
         const habitat = this.modules.find(x => x.module?.type === ModuleTypes.habitation);
         let method = 'default';

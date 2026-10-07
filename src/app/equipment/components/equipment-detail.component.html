@@ -2,10 +2,158 @@
    <div class="col-md-12">
       <div class="card shadow" *ngIf="entity">
          <div class="card-header shadow-sm">
-            <a routerLink="/races">Equipment</a> - {{ entity.name }}
+            <a routerLink="/equipment">Equipment</a> - {{ entity.name }}
          </div>
          <div class="card-body small">
-            Coming soon
+            <div class="form-group row" *ngIf="entity.description && entity.description != 'No information available'">
+               <label class="col col-form-label col-form-label-sm">{{ entity.description }}</label>
+            </div>
+
+            <div class="row">
+               <div class="col-lg-4 col-md-6 col-sm-12">
+                  <dl class="row">
+                     <dt class="col-5">Race</dt>
+                     <dd class="col-7">
+                        <a *ngIf="entity.race" [routerLink]="['/races', entity.race.id]">{{ entity.race.name }}</a>
+                        <span *ngIf="!entity.race">-</span>
+                     </dd>
+
+                     <dt class="col-5">Type</dt>
+                     <dd class="col-7">{{ entity.type || '-' }}</dd>
+
+                     <dt class="col-5">Class</dt>
+                     <dd class="col-7">{{ entity.equipmentClass || '-' }}</dd>
+
+                     <dt class="col-5">Size</dt>
+                     <dd class="col-7">{{ entity.size || '-' }}</dd>
+
+                     <dt class="col-5">Hull</dt>
+                     <dd class="col-7">{{ entity.hull != null ? (entity.hull | number) : '-' }}</dd>
+
+                     <dt class="col-5">Explosion Damage</dt>
+                     <dd class="col-7">{{ entity.explosionDamage != null ? (entity.explosionDamage | number) : '-' }}</dd>
+
+                     <dt class="col-5">Owners</dt>
+                     <dd class="col-7">
+                        <ng-container *ngIf="entity.owners && entity.owners.length; else noOwners">
+                           <ul class="list-unstyled mb-0">
+                              <li *ngFor="let item of entity.owners">
+                                 <a [routerLink]="['/factions/', item.id]">{{ item.name }}</a>
+                              </li>
+                           </ul>
+                        </ng-container>
+                        <ng-template #noOwners>-</ng-template>
+                     </dd>
+                  </dl>
+               </div>
+
+               <div class="col-lg-4 col-md-6 col-sm-12">
+                  <dl class="row">
+                     <ng-container *ngIf="entity.price">
+                        <dt class="col-5">Min Price</dt>
+                        <dd class="col-7">{{ entity.price.min | number }}</dd>
+
+                        <dt class="col-5">Avg Price</dt>
+                        <dd class="col-7">{{ entity.price.avg | number }}</dd>
+
+                        <dt class="col-5">Max Price</dt>
+                        <dd class="col-7">{{ entity.price.max | number }}</dd>
+                     </ng-container>
+
+                     <ng-container *ngIf="entity.thrust">
+                        <dt class="col-5">Forward Thrust</dt>
+                        <dd class="col-7">{{ entity.thrust.forward | number }}</dd>
+
+                        <dt class="col-5">Reverse Thrust</dt>
+                        <dd class="col-7">{{ entity.thrust.reverse | number }}</dd>
+                     </ng-container>
+
+                     <ng-container *ngIf="entity.travel">
+                        <dt class="col-5">Travel Thrust</dt>
+                        <dd class="col-7">{{ entity.travel.thrust | number }}</dd>
+
+                        <dt class="col-5">Travel Attack</dt>
+                        <dd class="col-7">{{ entity.travel.attack | number }}</dd>
+
+                        <dt class="col-5">Travel Charge</dt>
+                        <dd class="col-7">{{ entity.travel.charge | number }}</dd>
+
+                        <dt class="col-5">Travel Release</dt>
+                        <dd class="col-7">{{ entity.travel.release | number }}</dd>
+                     </ng-container>
+                  </dl>
+               </div>
+
+               <div class="col-lg-4 col-md-6 col-sm-12" *ngIf="entity.recharge">
+                  <dl class="row">
+                     <dt class="col-5">Shield Capacity</dt>
+                     <dd class="col-7">{{ entity.recharge.max | number }}</dd>
+
+                     <dt class="col-5">Recharge Rate</dt>
+                     <dd class="col-7">{{ entity.recharge.rate | number }}</dd>
+
+                     <dt class="col-5">Recharge Delay</dt>
+                     <dd class="col-7">{{ entity.recharge.delay | number }}</dd>
+                  </dl>
+               </div>
+            </div>
+
+            <div *ngIf="entityProduction && entityProduction.length" class="row mt-2 mb-2">
+               <div class="col-xl-4 col-lg-6 col-sm-12 mb-3" *ngFor="let production of entityProduction">
+                  <div class="card shadow-sm h-100">
+                     <div class="card-header">
+                        Production: <em>{{ production.name }}</em>
+                     </div>
+                     <div class="card-body">
+                        <div *ngIf="production.wares.length">
+                           <h6>Requirements</h6>
+                           <div class="table-responsive">
+                              <table class="table table-sm">
+                                 <thead>
+                                 <tr>
+                                    <th>Resource</th>
+                                    <th class="text-right">Min</th>
+                                    <th class="text-right">Max</th>
+                                    <th class="text-right">Avg</th>
+                                 </tr>
+                                 </thead>
+                                 <tbody>
+                                 <tr *ngFor="let item of production.wares">
+                                    <td>{{ item.amount }} x <a [routerLink]="['/wares/', item.ware.id]">{{ item.ware.name }}</a></td>
+                                    <td class="text-right">{{ item.amount * item.ware.price.min | number }}</td>
+                                    <td class="text-right">{{ item.amount * item.ware.price.max | number }}</td>
+                                    <td class="text-right">{{ item.amount * item.ware.price.avg | number }}</td>
+                                 </tr>
+                                 </tbody>
+                                 <tfoot>
+                                 <tr>
+                                    <th class="text-right">Total</th>
+                                    <th class="text-right">{{ getTotalMin(production) | number }}</th>
+                                    <th class="text-right">{{ getTotalMax(production) | number }}</th>
+                                    <th class="text-right">{{ getTotalAvg(production) | number }}</th>
+                                 </tr>
+                                 </tfoot>
+                              </table>
+                           </div>
+                        </div>
+
+                        <h6>Production</h6>
+                        <table class="table table-sm mb-0">
+                           <tbody>
+                           <tr>
+                              <td>Time</td>
+                              <td class="text-right">{{ getProductionTime(production.time) }}</td>
+                           </tr>
+                           <tr>
+                              <td>Batch Size</td>
+                              <td class="text-right">{{ production.amount | number }}</td>
+                           </tr>
+                           </tbody>
+                        </table>
+                     </div>
+                  </div>
+               </div>
+            </div>
          </div>
       </div>
    </div>

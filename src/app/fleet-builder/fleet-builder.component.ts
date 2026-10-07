@@ -21,6 +21,7 @@ import { FleetBuilderService } from './fleet-builder.service';
 export class FleetBuilderComponent implements OnInit {
   readonly productionMethods = [
     { id: 'default', name: 'Universal' },
+    { id: 'boron', name: 'Boron' },
     { id: 'closedloop', name: 'Closed Loop' },
     { id: 'terran', name: 'Terran' },
     { id: 'xenon', name: 'Xenon' }
@@ -257,11 +258,7 @@ export class FleetBuilderComponent implements OnInit {
       return '';
     }
 
-    if (this.fleetBuilderService.isBoronShip(ship)) {
-      return 'The current upstream equipment database does not include Boron hardware. Hull, software and consumable totals are still calculated, but Boron engine, shield, weapon and turret totals will be incomplete until that source data is added.';
-    }
-
-    return 'Some hardware slots have no compatible equipment entry in the current source database.';
+    return 'Some hardware slots have no compatible equipment entry in the current source data. The resource summary only includes components you can actually select.';
   }
 
   savePlan() {

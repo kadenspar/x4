@@ -11,7 +11,6 @@ import {
   FleetBuildItem,
   FleetPlan,
   FleetResourceSummary,
-  FleetShipEntry,
   FleetSummary,
   HardwareBulkGroup,
   HardwareKind,
@@ -24,6 +23,13 @@ export class FleetBuilderService {
   private readonly equipment: Equipment[];
   private readonly slotGroupCache: { [key: string]: HardwareSlotGroup[] } = {};
   private readonly compatibilityCache: { [key: string]: Equipment[] } = {};
+
+  private readonly boronLauncherSlots: { [key: string]: { size: string, count: number } } = {
+    'ship_bor_s_heavyfighter_01_a': { size: 'Small', count: 1 },
+    'ship_bor_s_scout_01_a': { size: 'Small', count: 1 },
+    'ship_bor_s_scout_02_a': { size: 'Small', count: 1 },
+    'ship_bor_m_gunboat_01_a': { size: 'Medium', count: 2 }
+  };
 
   constructor(private shipService: ShipService,
               private equipmentService: EquipmentService,
@@ -87,13 +93,31 @@ export class FleetBuilderService {
         label: 'Thrusters',
         size: ship.thruster,
         count: 1,
-        types: []
+        types: [],
+        hittable: false
       });
     }
 
     groups.push(...this.groupSlots('shield', ship.shields || []));
     groups.push(...this.groupSlots('weapon', ship.weapons || []));
     groups.push(...this.groupSlots('turret', ship.turrets || []));
+
+    if (this.isBoronShip(ship)) {
+      this.correctBoronSlotTypes(ship, groups);
+
+      const launcher = this.boronLauncherSlots[ship.id];
+      if (launcher) {
+        groups.push({
+          id: 'weapon|' + launcher.size + '|launcher|' + TurretType.missile,
+          kind: 'weapon',
+          label: 'Missile Launchers',
+          size: launcher.size,
+          count: launcher.count,
+          types: [ TurretType.missile ],
+          hittable: false
+        });
+      }
+    }
 
     this.slotGroupCache[ship.id] = groups;
     return groups;
@@ -321,7 +345,8 @@ export class FleetBuilderService {
           label: this.getSlotLabel(kind, slot.group, types),
           size: slot.size,
           count: 0,
-          types: types
+          types: types,
+          hittable: slot.hittable
         };
       }
 
@@ -329,6 +354,30 @@ export class FleetBuilderService {
     });
 
     return Object.keys(map).map(key => map[key]);
+  }
+
+  private correctBoronSlotTypes(ship: Ship, groups: HardwareSlotGroup[]) {
+    groups.forEach(group => {
+      if (group.kind === 'weapon') {
+        if (ship.id === 'ship_bor_l_destroyer_01_a' && group.size === 'Large') {
+          group.types = [];
+        } else if (ship.purpose === 'Mine' || group.types.includes(TurretType.mining)) {
+          group.types = [ TurretType.mining ];
+        } else {
+          group.types = [ TurretType.standard ];
+        }
+      }
+
+      if (group.kind === 'turret') {
+        if (group.types.includes(TurretType.mining) && group.size === 'Large') {
+          group.types = [ TurretType.mining ];
+        } else if (ship.purpose === 'Mine') {
+          group.types = [ TurretType.standard, TurretType.mining, TurretType.missile ];
+        } else {
+          group.types = [ TurretType.standard, TurretType.missile ];
+        }
+      }
+    });
   }
 
   private getSlotLabel(kind: HardwareKind, group: string, types: string[]): string {
@@ -369,11 +418,11 @@ export class FleetBuilderService {
   }
 
   private isCompatible(ship: Ship, group: HardwareSlotGroup, item: Equipment): boolean {
-    if (!this.matchesRaceRestrictions(ship, item)) {
+    if (item.size !== group.size) {
       return false;
     }
 
-    if (item.size !== group.size) {
+    if (!this.matchesShipFamily(ship, group, item) || !this.matchesHittable(group, item)) {
       return false;
     }
 
@@ -396,15 +445,34 @@ export class FleetBuilderService {
     }
   }
 
-  private matchesRaceRestrictions(ship: Ship, item: Equipment): boolean {
-    const boronShip = this.isBoronShip(ship);
+  private matchesShipFamily(ship: Ship, group: HardwareSlotGroup, item: Equipment): boolean {
+    if (group.kind === 'thruster') {
+      return true;
+    }
+
     const boronEquipment = item.id.indexOf('_bor_') >= 0 || item.race?.id === 'boron';
 
-    if (boronShip) {
-      return boronEquipment;
+    if (this.isBoronShip(ship)) {
+      return !!item.slotTags?.includes('advanced');
     }
 
     return !boronEquipment;
+  }
+
+  private matchesHittable(group: HardwareSlotGroup, item: Equipment): boolean {
+    if (!item.slotTags || item.slotTags.length === 0) {
+      return true;
+    }
+
+    if (group.hittable && item.slotTags.includes('unhittable')) {
+      return false;
+    }
+
+    if (!group.hittable && item.slotTags.includes('hittable')) {
+      return false;
+    }
+
+    return true;
   }
 
   private isWeaponCompatible(ship: Ship, group: HardwareSlotGroup, item: Equipment): boolean {
@@ -413,19 +481,26 @@ export class FleetBuilderService {
     }
 
     if (group.types.length === 0) {
+      if (ship.id === 'ship_bor_l_destroyer_01_a') {
+        return item.id === 'weapon_bor_l_beam_01_mk1';
+      }
+
       const shipStem = ship.id
         .replace(/^ship_/, '')
         .replace(/_[a-z]$/, '');
       return item.id.indexOf('weapon_' + shipStem + '_') === 0;
     }
 
-    if (item.equipmentClass === EquipmentClass.missilelauncher) {
+    if (item.slotTags?.includes('missile') || item.equipmentClass === EquipmentClass.missilelauncher) {
       return group.types.includes(TurretType.missile);
     }
 
-    const miningWeapon = this.isMiningItem(item);
-    if (miningWeapon) {
+    if (item.slotTags?.includes('mining') || this.isMiningItem(item)) {
       return group.types.includes(TurretType.mining);
+    }
+
+    if (item.slotTags?.includes('combat')) {
+      return group.types.includes(TurretType.standard);
     }
 
     return item.equipmentClass === EquipmentClass.weapon &&
@@ -437,13 +512,16 @@ export class FleetBuilderService {
       return false;
     }
 
-    if (item.equipmentClass === EquipmentClass.missileturret) {
+    if (item.slotTags?.includes('missile') || item.equipmentClass === EquipmentClass.missileturret) {
       return group.types.includes(TurretType.missile);
     }
 
-    const miningTurret = this.isMiningItem(item);
-    if (miningTurret) {
+    if (item.slotTags?.includes('mining') || this.isMiningItem(item)) {
       return group.types.includes(TurretType.mining);
+    }
+
+    if (item.slotTags?.includes('combat')) {
+      return group.types.includes(TurretType.standard);
     }
 
     return item.equipmentClass === EquipmentClass.turret &&
@@ -473,6 +551,12 @@ export class FleetBuilderService {
   private selectProduction(production: Production[], method: string): Production {
     if (!production || production.length === 0) {
       return null;
+    }
+
+    if (method === 'boron') {
+      return production.find(x => x.method === 'boron') ||
+        production.find(x => x.method === 'default') ||
+        production[0];
     }
 
     return production.find(x => x.method === method) ||

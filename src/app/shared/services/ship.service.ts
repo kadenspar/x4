@@ -1,22 +1,27 @@
 import { EntityService } from './entity.service';
 import { Ship } from './model/model';
 import { Ships } from './data/ships-data';
+import { BoronShipUpdates } from './data/boron-ship-updates';
 import { Injectable } from '@angular/core';
 
 @Injectable()
 export class ShipService implements EntityService<Ship> {
+  private readonly entities: Ship[] = (Ships as Ship[])
+    .map(ship => {
+      const update = BoronShipUpdates[ship.id];
+      return update ? { ...ship, ...update } : ship;
+    });
+
   getEntities(): Ship[] {
-    return Ships as any[];
+    return this.entities;
   }
 
   getEntity(id: any): Ship {
-    return this.getEntities()
-      .find(x => x.id == id);
+    return this.entities.find(x => x.id == id);
   }
 
   getEntitiesUsingWare(wareId: any) {
-    return this.getEntities()
-      .filter(x => this.isUsing(x, wareId));
+    return this.entities.filter(x => this.isUsing(x, wareId));
   }
 
   private isUsing(entity: Ship, wareId: string) {

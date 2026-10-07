@@ -113,6 +113,11 @@ export interface ShipStorage {
   unit: number;
 }
 
+export interface ShipCargo {
+  max: number;
+  types: CargoType[];
+}
+
 export interface Inertia {
   pitch: number;
   yaw: number;
@@ -146,6 +151,7 @@ export interface Ship {
   inertia: Inertia;
   drag: Drag;
   docks?: Dock[];
+  cargo?: ShipCargo[];
   engines: Slot[];
   shields?: Slot[];
   weapons?: TurretSlot[];
@@ -204,6 +210,8 @@ export interface Equipment {
    thrust?: Thrust;
    travel?: Travel;
    recharge?: Recharge;
+   slotTags?: string[];
+   integrated?: boolean;
    owners?: Faction[];
    production?: Production[];
 }

@@ -9,6 +9,7 @@ export interface HardwareSlotGroup {
   size: string;
   count: number;
   types: string[];
+  hittable: boolean;
 }
 
 export interface HardwareBulkGroup {

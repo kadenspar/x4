@@ -24,21 +24,16 @@ export class FleetBuilderService {
   private readonly slotGroupCache: { [key: string]: HardwareSlotGroup[] } = {};
   private readonly compatibilityCache: { [key: string]: Equipment[] } = {};
 
-  private readonly boronLauncherSlots: { [key: string]: { size: string, count: number } } = {
-    'ship_bor_s_heavyfighter_01_a': { size: 'Small', count: 1 },
-    'ship_bor_s_scout_01_a': { size: 'Small', count: 1 },
-    'ship_bor_s_scout_02_a': { size: 'Small', count: 1 },
-    'ship_bor_m_gunboat_01_a': { size: 'Medium', count: 2 }
-  };
-
   constructor(private shipService: ShipService,
               private equipmentService: EquipmentService,
               private wareService: WareService) {
     this.ships = this.shipService.getEntities()
+      .filter(x => x.isPlayerBlueprint !== false)
       .slice()
       .sort((a, b) => a.name.localeCompare(b.name));
 
     this.equipment = this.equipmentService.getEntities()
+      .filter(x => x.isPlayerBlueprint !== false)
       .slice()
       .sort((a, b) => a.name.localeCompare(b.name));
   }
@@ -101,23 +96,6 @@ export class FleetBuilderService {
     groups.push(...this.groupSlots('shield', ship.shields || []));
     groups.push(...this.groupSlots('weapon', ship.weapons || []));
     groups.push(...this.groupSlots('turret', ship.turrets || []));
-
-    if (this.isBoronShip(ship)) {
-      this.correctBoronSlotTypes(ship, groups);
-
-      const launcher = this.boronLauncherSlots[ship.id];
-      if (launcher) {
-        groups.push({
-          id: 'weapon|' + launcher.size + '|launcher|' + TurretType.missile,
-          kind: 'weapon',
-          label: 'Missile Launchers',
-          size: launcher.size,
-          count: launcher.count,
-          types: [ TurretType.missile ],
-          hittable: false
-        });
-      }
-    }
 
     this.slotGroupCache[ship.id] = groups;
     return groups;
@@ -338,8 +316,10 @@ export class FleetBuilderService {
     slots.forEach(slot => {
       const turretSlot = slot as TurretSlot;
       const types = turretSlot.types ? turretSlot.types.slice().sort() : [];
+      const tags = (slot.tags || []).slice().sort();
       const groupName = slot.group || 'main';
-      const key = kind + '|' + slot.size + '|' + groupName + '|' + types.join('+');
+      const key = kind + '|' + slot.size + '|' + groupName + '|' + types.join('+') +
+        (tags.length ? '|' + tags.join('+') : '');
 
       if (!map[key]) {
         map[key] = {
@@ -349,6 +329,7 @@ export class FleetBuilderService {
           size: slot.size,
           count: 0,
           types: types,
+          tags: tags,
           hittable: slot.hittable
         };
       }
@@ -357,30 +338,6 @@ export class FleetBuilderService {
     });
 
     return Object.keys(map).map(key => map[key]);
-  }
-
-  private correctBoronSlotTypes(ship: Ship, groups: HardwareSlotGroup[]) {
-    groups.forEach(group => {
-      if (group.kind === 'weapon') {
-        if (ship.id === 'ship_bor_l_destroyer_01_a' && group.size === 'Large') {
-          group.types = [];
-        } else if (ship.purpose === 'Mine' || group.types.includes(TurretType.mining)) {
-          group.types = [ TurretType.mining ];
-        } else {
-          group.types = [ TurretType.standard ];
-        }
-      }
-
-      if (group.kind === 'turret') {
-        if (group.types.includes(TurretType.mining) && group.size === 'Large') {
-          group.types = [ TurretType.mining ];
-        } else if (ship.purpose === 'Mine') {
-          group.types = [ TurretType.standard, TurretType.mining, TurretType.missile ];
-        } else {
-          group.types = [ TurretType.standard, TurretType.missile ];
-        }
-      }
-    });
   }
 
   private getSlotLabel(kind: HardwareKind, group: string, types: string[]): string {
@@ -425,7 +382,7 @@ export class FleetBuilderService {
       return false;
     }
 
-    if (!this.matchesShipFamily(ship, group, item) || !this.matchesHittable(group, item)) {
+    if (!this.matchesSlotTags(ship, group, item) || !this.matchesHittable(group, item)) {
       return false;
     }
 
@@ -448,18 +405,18 @@ export class FleetBuilderService {
     }
   }
 
-  private matchesShipFamily(ship: Ship, group: HardwareSlotGroup, item: Equipment): boolean {
+  private matchesSlotTags(ship: Ship, group: HardwareSlotGroup, item: Equipment): boolean {
     if (group.kind === 'thruster') {
       return true;
     }
-
-    const boronEquipment = item.id.indexOf('_bor_') >= 0 || item.race?.id === 'boron';
-
-    if (this.isBoronShip(ship)) {
-      return !!item.slotTags?.includes('advanced');
+    if (group.tags?.length) {
+      // X4 equipment connection tags must be provided by the ship slot.
+      // Hittable is checked separately because a plain slot accepts either.
+      return (item.slotTags || []).every(tag =>
+        tag === 'hittable' || tag === 'unhittable' || group.tags.includes(tag));
     }
-
-    return !boronEquipment;
+    // Legacy-only NPC ships have no extracted slot tags.
+    return !this.isBoronShip(ship) || !!item.slotTags?.includes('advanced');
   }
 
   private matchesHittable(group: HardwareSlotGroup, item: Equipment): boolean {
@@ -481,6 +438,10 @@ export class FleetBuilderService {
   private isWeaponCompatible(ship: Ship, group: HardwareSlotGroup, item: Equipment): boolean {
     if (item.type !== EquipmentType.weapons) {
       return false;
+    }
+
+    if (group.tags?.includes('mandatory') && item.slotTags?.includes('mandatory')) {
+      return true;
     }
 
     if (group.types.length === 0) {

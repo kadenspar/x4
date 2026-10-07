@@ -359,6 +359,30 @@ export class FleetBuilderComponent implements OnInit {
       pendingConsumableId: '',
       pendingSoftwareId: ''
     }));
+    plan.ships.forEach(entry => {
+      const ship = this.fleetBuilderService.getShip(entry.shipId);
+      if (!ship) {
+        return;
+      }
+      const groups = this.fleetBuilderService.getSlotGroups(ship);
+      for (const [oldId, equipmentId] of Object.entries(entry.selections)) {
+        if (groups.some(group => group.id === oldId)) {
+          continue;
+        }
+        const parts = oldId.split('|');
+        const candidates = groups.filter(group =>
+          group.id.startsWith(oldId + '|') ||
+          (group.kind === parts[0] && group.size === parts[1] &&
+            group.id.startsWith(parts.slice(0, 3).join('|') + '|')));
+        const compatible = candidates.filter(group =>
+          this.fleetBuilderService.getCompatibleEquipment(ship, group)
+            .some(item => item.id === equipmentId));
+        if (compatible.length === 1 && !entry.selections[compatible[0].id]) {
+          entry.selections[compatible[0].id] = equipmentId;
+          delete entry.selections[oldId];
+        }
+      }
+    });
     return plan;
   }
 

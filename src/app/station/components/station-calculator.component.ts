@@ -189,7 +189,7 @@ export class StationCalculatorComponent extends ComponentBase implements OnInit 
         this.summaryComponent.provideBasicResources = layout.provideBasicResources;
         this.summaryComponent.provideAllResources = layout.provideAllResources;
         this.summaryComponent.isHq = layout.isHeadquarters;
-        this.sunlight = layout.sunlight || 100;
+        this.sunlight = layout.sunlight ?? 100;
     }
 
     private getModuleConfig() {

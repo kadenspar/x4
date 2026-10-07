@@ -1,4 +1,10 @@
 const entities = {
+  uncategorized: {
+    id: 'uncategorized',
+    name: 'Other',
+    factoryName: 'Other',
+    icon: 'be_upgrade_refined'
+  },
   agricultural: {
     id: 'agricultural',
     name: 'Agricultural Goods',
@@ -89,5 +95,6 @@ export const WareGroups = {
     entities.refined,
     entities.shiptech,
     entities.water,
+    entities.uncategorized,
   ]
 };

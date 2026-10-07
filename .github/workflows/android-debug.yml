@@ -76,7 +76,7 @@ jobs:
           echo "Using Android signing certificate SHA-256: $KEY_SHA256"
 
       - name: Install JavaScript dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build Angular app
         run: npm run build:android

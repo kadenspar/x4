@@ -9,6 +9,7 @@ export interface HardwareSlotGroup {
   size: string;
   count: number;
   types: string[];
+  tags?: string[];
   hittable: boolean;
 }
 

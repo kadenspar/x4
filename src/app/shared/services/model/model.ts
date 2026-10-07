@@ -100,6 +100,7 @@ export interface StationModule {
   docks?: Dock[];
   shields?: Slot[];
   turrets?: TurretSlot[];
+  isPlayerBlueprint?: boolean;
 }
 
 export interface ModuleWorker {
@@ -156,6 +157,7 @@ export interface Ship {
   shields?: Slot[];
   weapons?: TurretSlot[];
   turrets?: TurretSlot[];
+  isPlayerBlueprint?: boolean;
 }
 
 export interface Dock {
@@ -167,6 +169,7 @@ export interface Slot {
   group?: string;
   size: string;
   hittable: boolean;
+   tags?: string[];
 }
 
 export interface TurretSlot extends Slot {
@@ -214,4 +217,5 @@ export interface Equipment {
    integrated?: boolean;
    owners?: Faction[];
    production?: Production[];
+   isPlayerBlueprint?: boolean;
 }

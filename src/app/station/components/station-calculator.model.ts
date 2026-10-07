@@ -6,8 +6,13 @@ import { ProductionMethods } from '../../shared/services/data/production-method-
 import { Workers } from '../../shared/services/data/workers-data';
 import { Effects } from '../../shared/services/data/effects-data';
 import { Wares } from "../../shared/services/data/wares-data";
+import { V9ModuleById } from '../../shared/services/data/v9-reference';
 
-export const RECYCLING_MODULES = [ 'module_gen_prod_scrap_recycler', 'module_ter_prod_scrap_recycler' ];
+export const RECYCLING_MODULES = [
+    'module_gen_prod_scrap_recycler',
+    'module_gen_prod_scrap_recyclerkhaak',
+    'module_ter_prod_scrap_recycler'
+];
 
 export interface StationResourceItemModel {
     ware: Ware;
@@ -93,6 +98,21 @@ export class StationModuleModel {
             this.production = [];
 
             if (this.module.type == ModuleTypes.production) {
+                const v9Module = V9ModuleById.get(this.module.id);
+                if (v9Module?.outputs) {
+                    const bonus = v9Module.workforce?.maxBonus || 0;
+                    this.production = Object.keys(v9Module.outputs).map(id => ({
+                        ware: this.wareService.getEntity(id),
+                        amount: v9Module.outputs[id],
+                        value: { time: 3600, amount: v9Module.outputs[id], method: v9Module.method,
+                            name: v9Module.method, wares: [],
+                            effects: bonus ? [{ type: Effects.work, product: bonus }] : [] }
+                    }));
+                    this.needs = Object.keys(v9Module.inputs || {}).map(id => ({
+                        ware: this.wareService.getEntity(id), amount: v9Module.inputs[id]
+                    }));
+                    return;
+                }
                 const wares = this.module.product;
 
                 for (let ware of wares) {

@@ -2,15 +2,16 @@ import { EntityService } from './entity.service';
 import { Ship } from './model/model';
 import { Ships } from './data/ships-data';
 import { BoronShipUpdates } from './data/boron-ship-updates';
+import { applyV9Ships } from './data/v9-adapters';
 import { Injectable } from '@angular/core';
 
 @Injectable()
 export class ShipService implements EntityService<Ship> {
-  private readonly entities: Ship[] = (Ships as Ship[])
+  private readonly entities: Ship[] = applyV9Ships((Ships as Ship[])
     .map(ship => {
       const update = BoronShipUpdates[ship.id];
       return update ? { ...ship, ...update } : ship;
-    });
+    }));
 
   getEntities(): Ship[] {
     return this.entities;

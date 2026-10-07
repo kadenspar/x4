@@ -151,11 +151,15 @@ export class FleetBuilderComponent implements OnInit {
           return;
         }
 
-        const compatible = this.fleetBuilderService.getCompatibleEquipment(ship, group)
-          .some(item => item.id === selectedId);
+        const options = this.fleetBuilderService.getCompatibleEquipment(ship, group);
+        const selected = this.fleetBuilderService.getEquipment(selectedId);
+        const match = options.find(item => item.id === selectedId) ||
+          options.find(item => selected &&
+            item.name === selected.name &&
+            item.equipmentClass === selected.equipmentClass);
 
-        if (compatible) {
-          entry.selections[group.id] = selectedId;
+        if (match) {
+          entry.selections[group.id] = match.id;
         }
       });
 

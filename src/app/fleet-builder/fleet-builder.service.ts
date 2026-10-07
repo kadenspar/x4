@@ -160,17 +160,20 @@ export class FleetBuilderService {
   }
 
   getBulkOptions(ship: Ship, bulk: HardwareBulkGroup): Equipment[] {
-    const byId: { [key: string]: Equipment } = {};
+    const byName: { [key: string]: Equipment } = {};
     const groupIds = new Set(bulk.slotGroupIds);
 
     this.getSlotGroups(ship)
       .filter(group => groupIds.has(group.id))
       .forEach(group => {
-        this.getCompatibleEquipment(ship, group).forEach(item => byId[item.id] = item);
+        this.getCompatibleEquipment(ship, group).forEach(item => {
+          const key = [ item.name, item.equipmentClass || '', item.type || '', item.size || '' ].join('|');
+          byName[key] = byName[key] || item;
+        });
       });
 
-    return Object.keys(byId)
-      .map(id => byId[id])
+    return Object.keys(byName)
+      .map(key => byName[key])
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 

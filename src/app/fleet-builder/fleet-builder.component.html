@@ -18,7 +18,7 @@
           <select class="form-select plan-method"
                   [(ngModel)]="plan.productionMethod"
                   (ngModelChange)="recalculate()">
-            <option *ngFor="let method of productionMethods" [value]="method.id">{{ method.name }} production</option>
+            <option *ngFor="let method of productionMethods" [value]="method.id">{{ method.name }} recipe set</option>
           </select>
 
           <button type="button" class="btn btn-primary" (click)="savePlan()" [disabled]="!plan.name.trim()">
@@ -33,7 +33,7 @@
         <div class="fleet-toolbar mb-3" *ngIf="savedPlanNames.length">
           <select class="form-select saved-plan" [(ngModel)]="selectedSavedPlanName">
             <option value="">Saved fleet plans...</option>
-            <option *ngFor="let name of savedPlanNames" [value]="name">{{ name }}</option>
+            <option *ngFor="let name of savedPlanNames; trackBy: trackByString" [value]="name">{{ name }}</option>
           </select>
           <button type="button" class="btn btn-info" (click)="loadPlan()" [disabled]="!selectedSavedPlanName">
             <i class="fa fa-folder-open"></i>&nbsp;Load
@@ -46,7 +46,7 @@
         <div class="fleet-add-row">
           <select class="form-select ship-picker" [(ngModel)]="selectedShipId">
             <option value="">Choose a ship...</option>
-            <option *ngFor="let ship of ships" [value]="ship.id">
+            <option *ngFor="let ship of ships; trackBy: trackByShipId" [value]="ship.id">
               {{ ship.name }} — {{ ship.size }} {{ ship.type }}
             </option>
           </select>
@@ -56,7 +56,7 @@
         </div>
 
         <div class="small text-secondary mt-2">
-          The selected production method is used where that recipe exists; otherwise the item's Universal/default recipe is used.
+          This does not filter ships. It selects the manufacturing recipe set used for resource calculations; if an item does not have that recipe, its Universal/default recipe is used.
         </div>
       </div>
     </div>
@@ -65,7 +65,7 @@
       Add a ship above to start building a fleet.
     </div>
 
-    <div *ngFor="let entry of plan.ships" class="card shadow ship-card">
+    <div *ngFor="let entry of plan.ships; trackBy: trackByEntryId" class="card shadow ship-card">
       <ng-container *ngIf="getShip(entry) as ship">
         <div class="card-header d-flex flex-wrap align-items-center gap-2">
           <div class="ship-title">
@@ -114,19 +114,19 @@
                   <div *ngIf="groups.length" class="hardware-section">
                     <h6>{{ section.label }}</h6>
 
-                    <ng-container *ngFor="let bulk of getBulkGroupsByKind(entry, section.kind)">
+                    <ng-container *ngFor="let bulk of getBulkGroupsByKind(entry, section.kind); trackBy: trackByBulkGroupId">
                       <div *ngIf="bulk.slotGroupIds.length > 1" class="bulk-row">
                         <span class="small text-secondary">{{ bulk.label }}</span>
                         <select class="form-select form-select-sm"
                                 [(ngModel)]="entry.bulkSelections[bulk.id]">
                           <option value="">None / clear compatible slots</option>
-                          <option *ngFor="let item of getBulkOptions(entry, bulk)" [value]="item.id">{{ item.name }}</option>
+                          <option *ngFor="let item of getBulkOptions(entry, bulk); trackBy: trackByEquipmentId" [value]="item.id">{{ item.name }}</option>
                         </select>
                         <button type="button" class="btn btn-sm btn-outline-primary" (click)="applyBulk(entry, bulk)">Apply</button>
                       </div>
                     </ng-container>
 
-                    <div *ngFor="let group of groups" class="slot-row">
+                    <div *ngFor="let group of groups; trackBy: trackByHardwareGroupId" class="slot-row">
                       <div class="slot-label small">
                         <strong>{{ group.label }}</strong>
                         <span class="text-secondary"> — {{ group.count }} × {{ group.size }}</span>
@@ -138,7 +138,7 @@
                                 (ngModelChange)="recalculate()"
                                 [disabled]="!options.length">
                           <option value="">None</option>
-                          <option *ngFor="let item of options" [value]="item.id">{{ item.name }}</option>
+                          <option *ngFor="let item of options; trackBy: trackByEquipmentId" [value]="item.id">{{ item.name }}</option>
                         </select>
                         <span *ngIf="!options.length" class="small text-warning">No compatible equipment data</span>
                       </ng-container>
@@ -155,7 +155,7 @@
                   <div class="add-row mb-2">
                     <select class="form-select form-select-sm" [(ngModel)]="entry.pendingConsumableId">
                       <option value="">Add missile, drone or countermeasure...</option>
-                      <option *ngFor="let item of getConsumableOptions(entry)" [value]="item.id">
+                      <option *ngFor="let item of getConsumableOptions(entry); trackBy: trackByEquipmentId" [value]="item.id">
                         {{ item.name }} — {{ item.type }}
                       </option>
                     </select>
@@ -202,7 +202,7 @@
                   <div class="add-row mb-2">
                     <select class="form-select form-select-sm" [(ngModel)]="entry.pendingSoftwareId">
                       <option value="">Add software...</option>
-                      <option *ngFor="let item of getAvailableSoftware(entry)" [value]="item.id">{{ item.name }}</option>
+                      <option *ngFor="let item of getAvailableSoftware(entry); trackBy: trackByEquipmentId" [value]="item.id">{{ item.name }}</option>
                     </select>
                     <button type="button" class="btn btn-sm btn-outline-success" (click)="addSoftware(entry)" [disabled]="!entry.pendingSoftwareId">
                       Add

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { Equipment, Ship } from '../shared/services/model/model';
 import { EquipmentType } from '../shared/services/data/equipment-type-data';
@@ -16,7 +16,8 @@ import { FleetBuilderService } from './fleet-builder.service';
 
 @Component({
   templateUrl: './fleet-builder.component.html',
-  styleUrls: [ './fleet-builder.component.scss' ]
+  styleUrls: [ './fleet-builder.component.scss' ],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class FleetBuilderComponent implements OnInit {
   readonly productionMethods = [
@@ -44,6 +45,8 @@ export class FleetBuilderComponent implements OnInit {
   summary: FleetSummary;
 
   private readonly storageKey = 'x4-fleet-builder-plans-v1';
+  private readonly groupsByKindCache: { [key: string]: HardwareSlotGroup[] } = {};
+  private readonly bulkGroupsByKindCache: { [key: string]: HardwareBulkGroup[] } = {};
   private entrySequence = 0;
 
   constructor(private fleetBuilderService: FleetBuilderService,
@@ -121,13 +124,23 @@ export class FleetBuilderComponent implements OnInit {
   }
 
   getGroupsByKind(entry: FleetShipEntry, kind: HardwareKind): HardwareSlotGroup[] {
-    return this.fleetBuilderService.getSlotGroups(this.getShip(entry))
-      .filter(group => group.kind === kind);
+    const ship = this.getShip(entry);
+    const cacheKey = ship.id + '|' + kind;
+    if (!this.groupsByKindCache[cacheKey]) {
+      this.groupsByKindCache[cacheKey] = this.fleetBuilderService.getSlotGroups(ship)
+        .filter(group => group.kind === kind);
+    }
+    return this.groupsByKindCache[cacheKey];
   }
 
   getBulkGroupsByKind(entry: FleetShipEntry, kind: HardwareKind): HardwareBulkGroup[] {
-    return this.fleetBuilderService.getBulkGroups(this.getShip(entry))
-      .filter(group => group.kind === kind);
+    const ship = this.getShip(entry);
+    const cacheKey = ship.id + '|' + kind;
+    if (!this.bulkGroupsByKindCache[cacheKey]) {
+      this.bulkGroupsByKindCache[cacheKey] = this.fleetBuilderService.getBulkGroups(ship)
+        .filter(group => group.kind === kind);
+    }
+    return this.bulkGroupsByKindCache[cacheKey];
   }
 
   getCompatibleEquipment(entry: FleetShipEntry, group: HardwareSlotGroup): Equipment[] {
@@ -308,6 +321,30 @@ export class FleetBuilderComponent implements OnInit {
 
   recalculate() {
     this.summary = this.fleetBuilderService.calculate(this.plan);
+  }
+
+  trackByEntryId(index: number, entry: FleetShipEntry): string {
+    return entry.id;
+  }
+
+  trackByShipId(index: number, ship: Ship): string {
+    return ship.id;
+  }
+
+  trackByEquipmentId(index: number, item: Equipment): string {
+    return item.id;
+  }
+
+  trackByHardwareGroupId(index: number, group: HardwareSlotGroup): string {
+    return group.id;
+  }
+
+  trackByBulkGroupId(index: number, group: HardwareBulkGroup): string {
+    return group.id;
+  }
+
+  trackByString(index: number, value: string): string {
+    return value;
   }
 
   private getConsumableCountByType(entry: FleetShipEntry, type: string): number {

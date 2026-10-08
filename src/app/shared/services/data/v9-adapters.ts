@@ -26,6 +26,39 @@ function price(id: string, previous?: { min: number; avg: number; max: number })
   return V9Prices[id] || previous || { min: 0, avg: 0, max: 0 };
 }
 
+function shipDisplayName(record: any, previous?: string): string {
+  if (record.purposePrimary !== 'mine') {
+    return record.name;
+  }
+
+  const cargoTypes = new Set<string>((record.cargo || []).map((item: any) => item.type));
+  let role = '';
+  if (cargoTypes.has('liquid') && !cargoTypes.has('solid')) {
+    role = 'Gas';
+  } else if (cargoTypes.has('solid') && !cargoTypes.has('liquid')) {
+    role = 'Mineral';
+  }
+
+  if (!role) {
+    return record.name;
+  }
+
+  // Preserve the older generated display names where they already carry the
+  // same in-game miner role, e.g. "Magnetar (Gas) Vanguard".
+  if (previous && previous.includes('(' + role + ')')) {
+    return previous;
+  }
+
+  if (record.name.includes('(' + role + ')')) {
+    return record.name;
+  }
+
+  const variant = record.name.match(/^(.*?)( (?:Vanguard|Sentinel))$/);
+  return variant ?
+    variant[1] + ' (' + role + ')' + variant[2] :
+    record.name + ' (' + role + ')';
+}
+
 function production(costs: any, times: any, previous: Production[] = []): Production[] {
   if (!costs) {
     return previous;
@@ -91,7 +124,7 @@ export function applyV9Ships(legacy: Ship[]): Ship[] {
     const ship: Ship = {
       ...(old || {} as Ship),
       id: record.id,
-      name: record.name,
+      name: shipDisplayName(record, old?.name),
       description: old?.description || record.name,
       size: size(record.class?.replace('ship_', '')),
       type: (ShipType as any)[record.type] || record.type,

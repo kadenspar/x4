@@ -147,9 +147,14 @@ export class FleetBuilderService {
       return this.compatibilityCache[cacheKey];
     }
 
-    const values = this.equipment
-      .filter(item => this.isCompatible(ship, group, item))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    const values = this.dedupeEquipmentOptions(
+      this.equipment
+        .filter(item => this.isCompatible(ship, group, item))
+        .sort((a, b) => {
+          const nameCompare = a.name.localeCompare(b.name);
+          return nameCompare === 0 ? a.id.localeCompare(b.id) : nameCompare;
+        })
+    );
 
     this.compatibilityCache[cacheKey] = values;
     return values;
@@ -528,6 +533,28 @@ export class FleetBuilderService {
   private isMiningItem(item: Equipment): boolean {
     const name = item.name.toLowerCase();
     return item.id.indexOf('_mining_') >= 0 || name.indexOf('mining') >= 0;
+  }
+
+  private dedupeEquipmentOptions(items: Equipment[]): Equipment[] {
+    const seen = new Set<string>();
+    return items.filter(item => {
+      // X4 has separate internal/external/racer macros that can share the same
+      // player-facing name. A single dropdown should not show the same visible
+      // choice twice after slot compatibility has already been resolved.
+      const key = [
+        item.name || '',
+        item.type || '',
+        item.equipmentClass || '',
+        item.size || ''
+      ].join('|');
+
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    });
   }
 
   private addBuildItem(map: { [key: string]: FleetBuildEntity },

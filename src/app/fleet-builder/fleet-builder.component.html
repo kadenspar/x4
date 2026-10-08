@@ -43,16 +43,43 @@
           </button>
         </div>
 
+        <div class="fleet-add-row ship-filter-row">
+          <select class="form-select ship-filter"
+                  [(ngModel)]="selectedShipRace"
+                  (ngModelChange)="applyShipFilters()">
+            <option value="">All races</option>
+            <option *ngFor="let race of shipRaceOptions" [value]="race.id">{{ race.name }}</option>
+          </select>
+
+          <select class="form-select ship-filter"
+                  [(ngModel)]="selectedShipSize"
+                  (ngModelChange)="applyShipFilters()">
+            <option value="">All sizes</option>
+            <option *ngFor="let size of shipSizeOptions; trackBy: trackByString" [value]="size">{{ size }}</option>
+          </select>
+
+          <button type="button"
+                  class="btn btn-outline-secondary"
+                  (click)="clearShipFilters()"
+                  [disabled]="!selectedShipRace && !selectedShipSize">
+            Clear filters
+          </button>
+        </div>
+
         <div class="fleet-add-row">
           <select class="form-select ship-picker" [(ngModel)]="selectedShipId">
             <option value="">Choose a ship...</option>
-            <option *ngFor="let ship of ships; trackBy: trackByShipId" [value]="ship.id">
-              {{ ship.name }} — {{ ship.size }} {{ ship.type }}
+            <option *ngFor="let ship of filteredShips; trackBy: trackByShipId" [value]="ship.id">
+              {{ ship.name }} — {{ ship.race?.name || 'Unknown race' }} — {{ ship.size }} {{ ship.type }}
             </option>
           </select>
           <button type="button" class="btn btn-success" (click)="addShip()" [disabled]="!selectedShipId">
             <i class="fa fa-plus"></i>&nbsp;Add Ship
           </button>
+        </div>
+
+        <div *ngIf="!filteredShips.length" class="small text-warning mt-2">
+          No ships match the selected race and size filters.
         </div>
 
         <div class="small text-secondary mt-2">

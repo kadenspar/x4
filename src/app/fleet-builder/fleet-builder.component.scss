@@ -23,7 +23,8 @@
 
 .plan-method,
 .saved-plan,
-.ship-picker {
+.ship-picker,
+.ship-filter {
   min-width: 180px;
   flex: 1 1 220px;
 }
@@ -111,4 +112,12 @@
   .ship-actions .btn {
     flex: 1 1 auto;
   }
+}
+
+.ship-filter-row {
+  margin-bottom: 0.5rem;
+}
+
+.ship-filter {
+  flex: 1 1 160px;
 }

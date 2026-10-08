@@ -37,8 +37,13 @@ export class FleetBuilderComponent implements OnInit {
   ];
 
   ships: Ship[] = [];
+  filteredShips: Ship[] = [];
+  shipRaceOptions: { id: string, name: string }[] = [];
+  shipSizeOptions: string[] = [];
   softwareOptions: Equipment[] = [];
   selectedShipId = '';
+  selectedShipRace = '';
+  selectedShipSize = '';
   selectedSavedPlanName = '';
   savedPlanNames: string[] = [];
   plan: FleetPlan = this.createEmptyPlan();
@@ -57,6 +62,9 @@ export class FleetBuilderComponent implements OnInit {
   ngOnInit(): void {
     this.titleService.setTitle(BASE_TITLE + ' - Fleet Builder');
     this.ships = this.fleetBuilderService.getShips();
+    this.shipRaceOptions = this.buildShipRaceOptions(this.ships);
+    this.shipSizeOptions = this.buildShipSizeOptions(this.ships);
+    this.applyShipFilters();
     this.softwareOptions = this.fleetBuilderService.getSoftwareOptions();
     this.refreshSavedPlans();
     this.recalculate();
@@ -67,6 +75,24 @@ export class FleetBuilderComponent implements OnInit {
     this.selectedShipId = '';
     this.selectedSavedPlanName = '';
     this.recalculate();
+  }
+
+  applyShipFilters() {
+    this.filteredShips = this.ships.filter(ship =>
+      (!this.selectedShipRace || ship.race?.id === this.selectedShipRace) &&
+      (!this.selectedShipSize || ship.size === this.selectedShipSize)
+    );
+
+    if (this.selectedShipId &&
+        !this.filteredShips.some(ship => ship.id === this.selectedShipId)) {
+      this.selectedShipId = '';
+    }
+  }
+
+  clearShipFilters() {
+    this.selectedShipRace = '';
+    this.selectedShipSize = '';
+    this.applyShipFilters();
   }
 
   addShip() {
@@ -345,6 +371,38 @@ export class FleetBuilderComponent implements OnInit {
 
   trackByString(index: number, value: string): string {
     return value;
+  }
+
+  private buildShipRaceOptions(ships: Ship[]): { id: string, name: string }[] {
+    const byId = new Map<string, string>();
+    ships.forEach(ship => {
+      if (ship.race?.id && ship.race?.name) {
+        byId.set(ship.race.id, ship.race.name);
+      }
+    });
+
+    return Array.from(byId.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  private buildShipSizeOptions(ships: Ship[]): string[] {
+    const order = [ 'Extra Small', 'Small', 'Medium', 'Large', 'Extra Large' ];
+    return Array.from(new Set(ships.map(ship => ship.size).filter(Boolean)))
+      .sort((a, b) => {
+        const ai = order.indexOf(a);
+        const bi = order.indexOf(b);
+        if (ai >= 0 && bi >= 0) {
+          return ai - bi;
+        }
+        if (ai >= 0) {
+          return -1;
+        }
+        if (bi >= 0) {
+          return 1;
+        }
+        return a.localeCompare(b);
+      });
   }
 
   private getConsumableCountByType(entry: FleetShipEntry, type: string): number {

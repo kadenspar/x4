@@ -186,6 +186,25 @@ const equipmentClasses: Record<string, string> = {
   turret: EquipmentClass.turret, missileturret: EquipmentClass.missileturret
 };
 
+function v9ConsumableType(record: any): string {
+  if (record.class === 'countermeasure') {
+    return EquipmentType.countermeasures;
+  }
+
+  if ((record.tags || []).includes('software')) {
+    return EquipmentType.software;
+  }
+
+  return EquipmentType.deployables;
+}
+
+const v9ConsumableNames: Record<string, string> = {
+  waypointmarker_01: 'Nav Beacon',
+  resourceprobe_01: 'Resource Probe',
+  satellite_mk1: 'Satellite',
+  satellite_mk2: 'Advanced Satellite'
+};
+
 export function applyV9Equipments(legacy: Equipment[]): Equipment[] {
   const existing = new Map(legacy.map(item => [item.id, item]));
   const updated = V9Equipments.map(record => {
@@ -216,21 +235,21 @@ export function applyV9Equipments(legacy: Equipment[]): Equipment[] {
   const otherRecords = [
     ...V9Missiles.map(record => ({ ...record, appType: EquipmentType.missiles })),
     ...V9Drones.map(record => ({ ...record, appType: EquipmentType.drones })),
-    ...V9Consumables.map(record => ({ ...record, appType:
-      record.class === 'countermeasure' ? EquipmentType.countermeasures : EquipmentType.software }))
+    ...V9Consumables.map(record => ({ ...record, appType: v9ConsumableType(record) }))
   ];
   const additional: Equipment[] = [];
   for (const record of otherRecords) {
     const old = existing.get(record.id);
-    const label = record.name && !record.name.startsWith('{') ? record.name :
-      record.id.replace(/^(missile_|ship_|software_)/, '').replace(/_/g, ' ')
-        .replace(/\b\w/g, letter => letter.toUpperCase());
+    const label = v9ConsumableNames[record.id] ||
+      (record.name && !record.name.startsWith('{') ? record.name :
+        record.id.replace(/^(missile_|ship_|software_)/, '').replace(/_/g, ' ')
+          .replace(/\b\w/g, letter => letter.toUpperCase()));
     additional.push({
       ...(old || {} as Equipment),
       id: record.id,
       name: old?.name || label,
       description: old?.description || label,
-      type: old?.type || record.appType,
+      type: record.appType,
       equipmentClass: old?.equipmentClass || record.class,
       size: old?.size || (record.class?.startsWith('ship_') ? size(record.class.slice(5)) : undefined),
       hull: record.hull ?? old?.hull,

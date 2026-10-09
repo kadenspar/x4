@@ -177,11 +177,11 @@
 
             <div class="col-xl-4 col-lg-5 col-12 mt-3 mt-lg-0">
               <div class="card mb-3">
-                <div class="card-header">Consumables</div>
+                <div class="card-header">Consumables & Deployables</div>
                 <div class="card-body">
                   <div class="add-row mb-2">
                     <select class="form-select form-select-sm" [(ngModel)]="entry.pendingConsumableId">
-                      <option value="">Add missile, drone or countermeasure...</option>
+                      <option value="">Add missile, drone, countermeasure or deployable...</option>
                       <option *ngFor="let item of getConsumableOptions(entry); trackBy: trackByEquipmentId" [value]="item.id">
                         {{ item.name }} — {{ item.type }}
                       </option>

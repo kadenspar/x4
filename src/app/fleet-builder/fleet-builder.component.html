@@ -191,7 +191,7 @@
                     </button>
                   </div>
 
-                  <div *ngFor="let selected of getSelectedConsumables(entry)" class="selected-row">
+                  <div *ngFor="let selected of getSelectedConsumables(entry); trackBy: trackBySelectedConsumable" class="selected-row">
                     <div class="selected-name small">{{ selected.equipment.name }}</div>
                     <div class="input-group input-group-sm consumable-quantity">
                       <button type="button" class="btn btn-outline-secondary touch-button" (click)="adjustConsumable(entry, selected.equipment.id, -1)">
@@ -202,7 +202,8 @@
                              inputmode="numeric"
                              class="form-control text-center"
                              [(ngModel)]="entry.consumables[selected.equipment.id]"
-                             (ngModelChange)="normalizeConsumable(entry, selected.equipment.id)">
+                             (change)="normalizeConsumable(entry, selected.equipment.id)"
+                             (blur)="normalizeConsumable(entry, selected.equipment.id)">
                       <button type="button" class="btn btn-outline-secondary touch-button" (click)="adjustConsumable(entry, selected.equipment.id, 1)">
                         <i class="fa fa-plus"></i>
                       </button>
@@ -236,7 +237,7 @@
                     </button>
                   </div>
 
-                  <div *ngFor="let item of getSelectedSoftware(entry)" class="selected-row">
+                  <div *ngFor="let item of getSelectedSoftware(entry); trackBy: trackByEquipmentId" class="selected-row">
                     <div class="selected-name small">{{ item.name }}</div>
                     <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeSoftware(entry, item.id)">
                       <i class="fa fa-times"></i>

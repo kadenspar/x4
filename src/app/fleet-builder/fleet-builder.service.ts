@@ -64,7 +64,8 @@ export class FleetBuilderService {
     }
 
     const values = this.equipment.filter(x => {
-      if (x.type === EquipmentType.countermeasures) {
+      if (x.type === EquipmentType.countermeasures ||
+          x.type === EquipmentType.deployables) {
         return true;
       }
 

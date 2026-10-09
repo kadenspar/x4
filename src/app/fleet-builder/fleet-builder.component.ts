@@ -52,6 +52,12 @@ export class FleetBuilderComponent implements OnInit {
   private readonly storageKey = 'x4-fleet-builder-plans-v1';
   private readonly groupsByKindCache: { [key: string]: HardwareSlotGroup[] } = {};
   private readonly bulkGroupsByKindCache: { [key: string]: HardwareBulkGroup[] } = {};
+  private readonly consumableOptionsByEntry: { [key: string]: Equipment[] } = {};
+  private readonly selectedConsumablesByEntry: { [key: string]: SelectedConsumable[] } = {};
+  private readonly softwareOptionsByEntry: { [key: string]: Equipment[] } = {};
+  private readonly selectedSoftwareByEntry: { [key: string]: Equipment[] } = {};
+  private readonly missileCountByEntry: { [key: string]: number } = {};
+  private readonly droneCountByEntry: { [key: string]: number } = {};
   private entrySequence = 0;
 
   constructor(private fleetBuilderService: FleetBuilderService,
@@ -74,6 +80,7 @@ export class FleetBuilderComponent implements OnInit {
     this.plan = this.createEmptyPlan();
     this.selectedShipId = '';
     this.selectedSavedPlanName = '';
+    this.clearAccessoryViewState();
     this.recalculate();
   }
 
@@ -100,7 +107,7 @@ export class FleetBuilderComponent implements OnInit {
       return;
     }
 
-    this.plan.ships.push({
+    const entry: FleetShipEntry = {
       id: this.createEntryId(),
       shipId: this.selectedShipId,
       quantity: 1,
@@ -110,8 +117,10 @@ export class FleetBuilderComponent implements OnInit {
       software: [],
       pendingConsumableId: '',
       pendingSoftwareId: ''
-    });
+    };
 
+    this.plan.ships.push(entry);
+    this.refreshAccessoryViewState(entry);
     this.selectedShipId = '';
     this.recalculate();
   }
@@ -124,6 +133,7 @@ export class FleetBuilderComponent implements OnInit {
 
     const index = this.plan.ships.indexOf(entry);
     this.plan.ships.splice(index + 1, 0, copy);
+    this.refreshAccessoryViewState(copy);
     this.recalculate();
   }
 
@@ -131,6 +141,7 @@ export class FleetBuilderComponent implements OnInit {
     const index = this.plan.ships.indexOf(entry);
     if (index >= 0) {
       this.plan.ships.splice(index, 1);
+      this.removeAccessoryViewState(entry.id);
       this.recalculate();
     }
   }
@@ -216,22 +227,16 @@ export class FleetBuilderComponent implements OnInit {
     }
 
     entry.pendingConsumableId = '';
+    this.refreshAccessoryViewState(entry);
     this.recalculate();
   }
 
   getConsumableOptions(entry: FleetShipEntry): Equipment[] {
-    return this.fleetBuilderService.getConsumableOptions(this.getShip(entry))
-      .filter(item => !entry.consumables[item.id]);
+    return this.consumableOptionsByEntry[entry.id] || [];
   }
 
   getSelectedConsumables(entry: FleetShipEntry): SelectedConsumable[] {
-    return Object.keys(entry.consumables)
-      .map(id => ({
-        equipment: this.fleetBuilderService.getEquipment(id),
-        quantity: entry.consumables[id]
-      }))
-      .filter(item => !!item.equipment)
-      .sort((a, b) => a.equipment.name.localeCompare(b.equipment.name));
+    return this.selectedConsumablesByEntry[entry.id] || [];
   }
 
   adjustConsumable(entry: FleetShipEntry, id: string, delta: number) {
@@ -242,6 +247,7 @@ export class FleetBuilderComponent implements OnInit {
       delete entry.consumables[id];
     }
 
+    this.refreshAccessoryViewState(entry);
     this.recalculate();
   }
 
@@ -252,20 +258,22 @@ export class FleetBuilderComponent implements OnInit {
     } else {
       entry.consumables[id] = value;
     }
+    this.refreshAccessoryViewState(entry);
     this.recalculate();
   }
 
   removeConsumable(entry: FleetShipEntry, id: string) {
     delete entry.consumables[id];
+    this.refreshAccessoryViewState(entry);
     this.recalculate();
   }
 
   getMissileCount(entry: FleetShipEntry): number {
-    return this.getConsumableCountByType(entry, EquipmentType.missiles);
+    return this.missileCountByEntry[entry.id] || 0;
   }
 
   getDroneCount(entry: FleetShipEntry): number {
-    return this.getConsumableCountByType(entry, EquipmentType.drones);
+    return this.droneCountByEntry[entry.id] || 0;
   }
 
   addSoftware(entry: FleetShipEntry) {
@@ -276,22 +284,21 @@ export class FleetBuilderComponent implements OnInit {
 
     entry.software.push(id);
     entry.pendingSoftwareId = '';
+    this.refreshAccessoryViewState(entry);
     this.recalculate();
   }
 
   getAvailableSoftware(entry: FleetShipEntry): Equipment[] {
-    return this.softwareOptions.filter(item => !entry.software.includes(item.id));
+    return this.softwareOptionsByEntry[entry.id] || [];
   }
 
   getSelectedSoftware(entry: FleetShipEntry): Equipment[] {
-    return entry.software
-      .map(id => this.fleetBuilderService.getEquipment(id))
-      .filter(item => !!item)
-      .sort((a, b) => a.name.localeCompare(b.name));
+    return this.selectedSoftwareByEntry[entry.id] || [];
   }
 
   removeSoftware(entry: FleetShipEntry, id: string) {
     entry.software = entry.software.filter(value => value !== id);
+    this.refreshAccessoryViewState(entry);
     this.recalculate();
   }
 
@@ -330,6 +337,7 @@ export class FleetBuilderComponent implements OnInit {
     }
 
     this.plan = this.normalizePlan(this.clone(saved));
+    this.rebuildAccessoryViewState();
     this.recalculate();
   }
 
@@ -359,6 +367,10 @@ export class FleetBuilderComponent implements OnInit {
 
   trackByEquipmentId(index: number, item: Equipment): string {
     return item.id;
+  }
+
+  trackBySelectedConsumable(index: number, item: SelectedConsumable): string {
+    return item.equipment.id;
   }
 
   trackByHardwareGroupId(index: number, group: HardwareSlotGroup): string {
@@ -403,6 +415,59 @@ export class FleetBuilderComponent implements OnInit {
         }
         return a.localeCompare(b);
       });
+  }
+
+  private refreshAccessoryViewState(entry: FleetShipEntry) {
+    const ship = this.getShip(entry);
+    if (!ship) {
+      this.removeAccessoryViewState(entry.id);
+      return;
+    }
+
+    this.consumableOptionsByEntry[entry.id] = this.fleetBuilderService.getConsumableOptions(ship)
+      .filter(item => !entry.consumables[item.id]);
+
+    this.selectedConsumablesByEntry[entry.id] = Object.keys(entry.consumables)
+      .map(id => ({
+        equipment: this.fleetBuilderService.getEquipment(id),
+        quantity: entry.consumables[id]
+      }))
+      .filter(item => !!item.equipment)
+      .sort((a, b) => a.equipment.name.localeCompare(b.equipment.name));
+
+    this.softwareOptionsByEntry[entry.id] = this.softwareOptions
+      .filter(item => !entry.software.includes(item.id));
+
+    this.selectedSoftwareByEntry[entry.id] = entry.software
+      .map(id => this.fleetBuilderService.getEquipment(id))
+      .filter(item => !!item)
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    this.missileCountByEntry[entry.id] = this.getConsumableCountByType(entry, EquipmentType.missiles);
+    this.droneCountByEntry[entry.id] = this.getConsumableCountByType(entry, EquipmentType.drones);
+  }
+
+  private rebuildAccessoryViewState() {
+    this.clearAccessoryViewState();
+    this.plan.ships.forEach(entry => this.refreshAccessoryViewState(entry));
+  }
+
+  private clearAccessoryViewState() {
+    Object.keys(this.consumableOptionsByEntry).forEach(key => delete this.consumableOptionsByEntry[key]);
+    Object.keys(this.selectedConsumablesByEntry).forEach(key => delete this.selectedConsumablesByEntry[key]);
+    Object.keys(this.softwareOptionsByEntry).forEach(key => delete this.softwareOptionsByEntry[key]);
+    Object.keys(this.selectedSoftwareByEntry).forEach(key => delete this.selectedSoftwareByEntry[key]);
+    Object.keys(this.missileCountByEntry).forEach(key => delete this.missileCountByEntry[key]);
+    Object.keys(this.droneCountByEntry).forEach(key => delete this.droneCountByEntry[key]);
+  }
+
+  private removeAccessoryViewState(entryId: string) {
+    delete this.consumableOptionsByEntry[entryId];
+    delete this.selectedConsumablesByEntry[entryId];
+    delete this.softwareOptionsByEntry[entryId];
+    delete this.selectedSoftwareByEntry[entryId];
+    delete this.missileCountByEntry[entryId];
+    delete this.droneCountByEntry[entryId];
   }
 
   private getConsumableCountByType(entry: FleetShipEntry, type: string): number {

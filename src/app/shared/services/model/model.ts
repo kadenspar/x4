@@ -100,6 +100,7 @@ export interface StationModule {
   docks?: Dock[];
   shields?: Slot[];
   turrets?: TurretSlot[];
+  isPlayerBlueprint?: boolean;
 }
 
 export interface ModuleWorker {
@@ -111,6 +112,11 @@ export interface ModuleWorker {
 export interface ShipStorage {
   missile: number;
   unit: number;
+}
+
+export interface ShipCargo {
+  max: number;
+  types: CargoType[];
 }
 
 export interface Inertia {
@@ -146,10 +152,12 @@ export interface Ship {
   inertia: Inertia;
   drag: Drag;
   docks?: Dock[];
+  cargo?: ShipCargo[];
   engines: Slot[];
   shields?: Slot[];
   weapons?: TurretSlot[];
   turrets?: TurretSlot[];
+  isPlayerBlueprint?: boolean;
 }
 
 export interface Dock {
@@ -161,6 +169,7 @@ export interface Slot {
   group?: string;
   size: string;
   hittable: boolean;
+   tags?: string[];
 }
 
 export interface TurretSlot extends Slot {
@@ -177,6 +186,19 @@ export interface Thrust {
    reverse: number;
 }
 
+export interface Travel {
+   thrust: number;
+   attack: number;
+   charge: number;
+   release: number;
+}
+
+export interface Recharge {
+   max: number;
+   rate: number;
+   delay: number;
+}
+
 export interface Equipment {
    id: string;
    name: string;
@@ -186,8 +208,14 @@ export interface Equipment {
    equipmentClass?: string;
    size?: string;
    hull?: number;
+   explosionDamage?: number;
    price?: Price;
    thrust?: Thrust;
+   travel?: Travel;
+   recharge?: Recharge;
+   slotTags?: string[];
+   integrated?: boolean;
    owners?: Faction[];
    production?: Production[];
+   isPlayerBlueprint?: boolean;
 }

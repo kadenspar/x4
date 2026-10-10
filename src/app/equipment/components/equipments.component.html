@@ -13,6 +13,7 @@
                           (onCellClick)="onRowSelect($event)"
                           keyExpr="id">
                <dxo-pager [showPageSizeSelector]="true" [showNavigationButtons]="true"></dxo-pager>
+          <dxo-state-storing [enabled]="true" type="localStorage" storageKey="x4-equipment-grid"></dxo-state-storing>
                <dxo-sorting mode="multiple"></dxo-sorting>
                <dxo-filter-row [applyFilter]="currentFilter" [visible]="true"></dxo-filter-row>
                <dxo-filter-panel [visible]="true"></dxo-filter-panel>

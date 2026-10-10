@@ -3,6 +3,7 @@ import { WareGroups } from './ware-groups-data';
 import { TransportType } from './transport-data';
 import { Effects } from './effects-data';
 import { Factions } from './factions-data';
+import { V9Wares, V9WareRecipes } from './v9-reference';
 
 export const Wares = {
   advancedcomposites: {
@@ -1792,3 +1793,43 @@ export const AllWares = [
   Wares.bogas,
   Wares.plankton,
 ];
+
+// Keep the existing descriptions and icons, while taking game values and recipes
+// from the 9.0 extraction. Append wares introduced after this data file was made.
+for (const record of V9Wares) {
+  let ware = (Wares as any)[record.id];
+  if (!ware) {
+    ware = {
+      id: record.id,
+      version: 9,
+      name: record.name,
+      description: record.name,
+      factoryName: `${record.name} Factory`,
+      icon: `ware_${record.id}`,
+      volume: record.volume,
+      transport: (TransportType as any)[record.transport],
+      price: { min: record.minPrice, max: record.maxPrice, avg: record.price },
+      group: (WareGroups as any)[record.group] || WareGroups.uncategorized,
+      production: []
+    };
+    (Wares as any)[record.id] = ware;
+    AllWares.push(ware);
+  }
+
+  ware.name = record.name;
+  ware.volume = record.volume;
+  ware.transport = (TransportType as any)[record.transport];
+  ware.price = { min: record.minPrice, max: record.maxPrice, avg: record.price };
+  ware.group = (WareGroups as any)[record.group] || WareGroups.uncategorized;
+  ware.production = (V9WareRecipes[record.id] || []).map(recipe => {
+    const previous = ware.production.find(old => old.method === recipe.method);
+    return {
+      time: recipe.time,
+      amount: recipe.amount,
+      method: recipe.method,
+      name: previous?.name || recipe.method,
+      wares: recipe.wares,
+      effects: recipe.effects
+    };
+  });
+}

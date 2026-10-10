@@ -1,6 +1,7 @@
 export enum EquipmentType {
   countermeasures = 'Countermeasures',
   drones = 'Drones',
+  deployables = 'Deployables',
   engines = 'Engines',
   missiles = 'Missiles',
   shields = 'Shields',

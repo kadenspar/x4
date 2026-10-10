@@ -15,7 +15,8 @@ export class WareService {
     food: 70,
     pharmaceutical: 80,
     hightech: 90,
-    shiptech: 100
+    shiptech: 100,
+    uncategorized: 110
   };
 
   getEntities(): Ware[] {

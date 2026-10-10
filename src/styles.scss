@@ -24,3 +24,22 @@
 
 html, body { height: 100%; background-color: #444444 }
 
+
+
+@media (max-width: 767.98px) {
+  .navbar-nav-scroll {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .navbar-nav-scroll .navbar-nav {
+    width: max-content;
+    flex-wrap: nowrap;
+  }
+
+  .navbar-nav-scroll .nav-link {
+    white-space: nowrap;
+  }
+}

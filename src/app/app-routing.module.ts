@@ -13,6 +13,10 @@ export const routes: Routes = [
     component: AboutComponent
   },
   {
+    path: 'fleet-builder',
+    loadChildren: () => import('./fleet-builder/fleet-builder.module').then(m => m.FleetBuilderModule)
+  },
+  {
     path: 'ships',
     loadChildren: () => import('./ship/ships.module').then(m => m.ShipsModule)
   },

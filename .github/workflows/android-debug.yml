@@ -2,10 +2,20 @@ name: Android debug APK
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - android
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      X4_ANDROID_APP_ID: com.x4utilities.companion
+      X4_ANDROID_SIGNING_STORE_FILE: /home/runner/.android/debug.keystore
+      X4_ANDROID_SIGNING_STORE_PASSWORD: android
+      X4_ANDROID_SIGNING_KEY_ALIAS: androiddebugkey
+      X4_ANDROID_SIGNING_KEY_PASSWORD: android
+      ANDROID_VERSION_CODE: ${{ github.run_number }}
 
     steps:
       - name: Check out source
@@ -31,26 +41,39 @@ jobs:
       - name: Install Android SDK 34
         run: sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
-      - name: Restore Android debug signing key
+      - name: Restore stable Android signing key
         id: debug-keystore-cache
         uses: actions/cache@v4
         with:
           path: ~/.android/debug.keystore
           key: x4-android-debug-keystore-v1
+          fail-on-cache-miss: true
 
-      - name: Create Android debug signing key
-        if: steps.debug-keystore-cache.outputs.cache-hit != 'true'
+      - name: Verify stable Android signing key
+        id: signing-key
+        shell: bash
         run: |
-          mkdir -p "$HOME/.android"
-          keytool -genkeypair -v \
-            -keystore "$HOME/.android/debug.keystore" \
-            -storepass android \
-            -alias androiddebugkey \
-            -keypass android \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
+          set -euo pipefail
+          if [ ! -f "$X4_ANDROID_SIGNING_STORE_FILE" ]; then
+            echo "::error::The stable Android signing key was not restored. Refusing to generate a replacement because a new key would make APK updates conflict with installed copies."
+            exit 1
+          fi
+
+          KEY_SHA256="$(
+            keytool -list -v               -keystore "$X4_ANDROID_SIGNING_STORE_FILE"               -storepass "$X4_ANDROID_SIGNING_STORE_PASSWORD"               -alias "$X4_ANDROID_SIGNING_KEY_ALIAS" |
+              sed -n 's/.*SHA256: //p' |
+              head -n 1 |
+              tr -d ':' |
+              tr 'A-F' 'a-f'
+          )"
+
+          if [ -z "$KEY_SHA256" ]; then
+            echo "::error::Could not read the Android signing certificate fingerprint."
+            exit 1
+          fi
+
+          echo "sha256=$KEY_SHA256" >> "$GITHUB_OUTPUT"
+          echo "Using Android signing certificate SHA-256: $KEY_SHA256"
 
       - name: Install JavaScript dependencies
         run: npm install
@@ -64,12 +87,136 @@ jobs:
       - name: Sync web assets to Android
         run: npx cap sync android
 
+      - name: Lock Android package identity, signing and version
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          app_id = os.environ["X4_ANDROID_APP_ID"]
+          version_code = int(os.environ["ANDROID_VERSION_CODE"])
+          path = Path("android/app/build.gradle")
+          text = path.read_text(encoding="utf-8")
+
+          application_id = re.search(r'applicationId\s+["\']([^"\']+)["\']', text)
+          if not application_id or application_id.group(1) != app_id:
+              raise SystemExit(
+                  f"Unexpected generated applicationId: "
+                  f"{application_id.group(1) if application_id else 'missing'}; expected {app_id}"
+              )
+
+          text, code_count = re.subn(
+              r"versionCode\s+\d+",
+              f"versionCode {version_code}",
+              text,
+              count=1,
+          )
+          text, name_count = re.subn(
+              r'versionName\s+"[^"]*"',
+              f'versionName "1.0.{version_code}"',
+              text,
+              count=1,
+          )
+          if code_count != 1 or name_count != 1:
+              raise SystemExit("Could not update generated Android versionCode/versionName.")
+
+          if "signingConfigs {" in text:
+              raise SystemExit("Generated build.gradle already contains signingConfigs; review before changing CI signing.")
+
+          signing_config = """
+              signingConfigs {
+                  debug {
+                      storeFile file(System.getenv("X4_ANDROID_SIGNING_STORE_FILE"))
+                      storePassword System.getenv("X4_ANDROID_SIGNING_STORE_PASSWORD")
+                      keyAlias System.getenv("X4_ANDROID_SIGNING_KEY_ALIAS")
+                      keyPassword System.getenv("X4_ANDROID_SIGNING_KEY_PASSWORD")
+                  }
+              }
+          """
+
+          marker = "    buildTypes {\n"
+          if marker not in text:
+              raise SystemExit("Could not find buildTypes block in generated Android project.")
+
+          text = text.replace(marker, signing_config + marker, 1)
+          text = text.replace(
+              marker,
+              marker + "        debug {\n            signingConfig signingConfigs.debug\n        }\n",
+              1,
+          )
+          path.write_text(text, encoding="utf-8")
+          PY
+
+          grep -F "applicationId \"$X4_ANDROID_APP_ID\"" android/app/build.gradle
+          grep -F "versionCode $ANDROID_VERSION_CODE" android/app/build.gradle
+          grep -F "signingConfig signingConfigs.debug" android/app/build.gradle
+
       - name: Build debug APK
         working-directory: android
         run: ./gradlew assembleDebug
+
+      - name: Verify APK identity and signing certificate
+        id: apk-identity
+        shell: bash
+        env:
+          EXPECTED_SIGNING_SHA256: ${{ steps.signing-key.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          AAPT="$ANDROID_HOME/build-tools/34.0.0/aapt"
+          APKSIGNER="$ANDROID_HOME/build-tools/34.0.0/apksigner"
+
+          "$APKSIGNER" verify "$APK"
+
+          BADGING="$("$AAPT" dump badging "$APK" | head -n 1)"
+          PACKAGE_NAME="$(printf '%s\n' "$BADGING" | sed -n "s/^package: name='\([^']*\)'.*/\1/p")"
+          VERSION_CODE="$(printf '%s\n' "$BADGING" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p")"
+          VERSION_NAME="$(printf '%s\n' "$BADGING" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")"
+
+          if [ "$PACKAGE_NAME" != "$X4_ANDROID_APP_ID" ]; then
+            echo "::error::APK package ID changed to '$PACKAGE_NAME'; expected '$X4_ANDROID_APP_ID'."
+            exit 1
+          fi
+
+          if [ "$VERSION_CODE" != "$ANDROID_VERSION_CODE" ]; then
+            echo "::error::APK versionCode is '$VERSION_CODE'; expected '$ANDROID_VERSION_CODE'."
+            exit 1
+          fi
+
+          APK_SIGNING_SHA256="$(
+            "$APKSIGNER" verify --print-certs "$APK" |
+              sed -n 's/^Signer #1 certificate SHA-256 digest: //p' |
+              head -n 1 |
+              tr -d ':' |
+              tr 'A-F' 'a-f'
+          )"
+
+          if [ "$APK_SIGNING_SHA256" != "$EXPECTED_SIGNING_SHA256" ]; then
+            echo "::error::APK was signed by the wrong certificate. Refusing to upload an APK that would cause an Android package conflict."
+            echo "Expected: $EXPECTED_SIGNING_SHA256"
+            echo "Actual:   $APK_SIGNING_SHA256"
+            exit 1
+          fi
+
+          {
+            echo "X4 Utilities Android build identity"
+            echo "packageId=$PACKAGE_NAME"
+            echo "versionCode=$VERSION_CODE"
+            echo "versionName=$VERSION_NAME"
+            echo "signingCertificateSha256=$APK_SIGNING_SHA256"
+            echo "gitCommit=${GITHUB_SHA}"
+            echo "workflowRun=${GITHUB_RUN_NUMBER}"
+          } | tee android/app/build/outputs/apk/debug/build-identity.txt
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: x4-utilities-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            android/app/build/outputs/apk/debug/build-identity.txt
+          if-no-files-found: error

@@ -6,6 +6,7 @@ import { ModuleService } from '../../shared/services/module.service';
 import { WareService } from '../../shared/services/ware.service';
 import { RECYCLING_MODULES, ResourceCalculator, StationModuleModel, StationResourceModel, WareGroupModel } from './station-calculator.model';
 import { StationSummaryService } from './station-summary/services/station-summary.service';
+import { V9ModuleById } from '../../shared/services/data/v9-reference';
 
 @Component({
     selector: 'app-station-modules',
@@ -76,6 +77,22 @@ export class StationModulesComponent implements OnInit {
         this.change.emit();
     }
 
+    decrementCount(item: StationModuleModel) {
+        item.count = Math.max(0, Number(item.count || 0) - 1);
+        this.onChange();
+    }
+
+    incrementCount(item: StationModuleModel) {
+        item.count = Math.max(0, Number(item.count || 0) + 1);
+        this.onChange();
+    }
+
+    onCountChanged(item: StationModuleModel) {
+        const count = Number(item.count);
+        item.count = Number.isFinite(count) ? Math.max(0, Math.trunc(count)) : 0;
+        this.onChange();
+    }
+
     autofillModules() {
         const habitat = this.modules.find(x => x.module?.type === ModuleTypes.habitation);
         let method = 'default';
@@ -83,7 +100,8 @@ export class StationModulesComponent implements OnInit {
             method = habitat.module.makerRace.id;
         }
 
-        while (true) {
+        // Stop when a deficit cannot be filled, such as solar power at 0% sunlight.
+        for (let pass = 0; pass < 100; pass++) {
 
             const resources: StationResourceModel[] = ResourceCalculator.calculate(this.modules, this.sunlight, this.stationSummaryService.$partialWorkforce);
             let didChange = false;
@@ -100,13 +118,23 @@ export class StationModulesComponent implements OnInit {
                     continue;
                 }
 
-                didChange = true;
-
                 const product = module.product.find(x => x.id == resource.ware.id);
-
-                const productionWare = product.production.find(p => p.method == method) || product.production.find(p => p.method == 'default');
-                const productionPerHour = productionWare.amount * (3600 / productionWare.time);
+                const productionWare = product?.production.find(p => p.method == method) || product?.production.find(p => p.method == 'default');
+                const v9Module = V9ModuleById.get(module.id);
+                let productionPerHour = v9Module?.outputs?.[resource.ware.id] ||
+                    (productionWare ? productionWare.amount * (3600 / productionWare.time) : 0);
+                if (resource.ware.id === 'energycells') {
+                    const sun = Number(this.sunlight);
+                    productionPerHour *= Number.isFinite(sun) ? Math.max(0, sun) / 100 : 1;
+                }
+                if (!Number.isFinite(productionPerHour) || productionPerHour <= 0) {
+                    continue;
+                }
                 const moduleCount = Math.ceil(-resource.amount / productionPerHour);
+                if (!Number.isFinite(moduleCount) || moduleCount <= 0) {
+                    continue;
+                }
+                didChange = true;
 
                 const existingModule = modules.find(m => m.module?.id == module.id);
                 if (existingModule == null) {

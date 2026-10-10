@@ -5,8 +5,21 @@
    </button>
 </div>
 <div class="modal-body">
-   <div>Paste the <span class="font-italic text-info">constructionplans.xml</span> content below. The plans will be added to your saved layout list.</div>
-   <div class="small text-secondary">File can be found in Documents\Egosoft\X4\[12345678]\constructionplans.xml</div>
+   <div>Import your <span class="font-italic text-info">constructionplans.xml</span> file, or paste its contents below. The plans will be added to your saved layout list.</div>
+   <div class="small text-secondary">On PC the file is normally in Documents\Egosoft\X4\[12345678]\constructionplans.xml.</div>
+
+   <div class="mt-3">
+      <label class="font-weight-bold" for="constructionPlanFile">Choose XML file</label>
+      <input id="constructionPlanFile"
+             class="form-control-file d-block mt-1"
+             type="file"
+             accept=".xml,text/xml,application/xml"
+             (change)="onFileSelected($event)">
+      <div *ngIf="fileName" class="small text-success mt-1">Loaded: {{ fileName }}</div>
+      <div *ngIf="fileError" class="small text-danger mt-1">{{ fileError }}</div>
+   </div>
+
+   <div class="small text-secondary mt-3">You can also paste the XML directly:</div>
    <textarea class="w-100 mt-2" rows="10" [(ngModel)]="xml"></textarea>
 </div>
 <div class="modal-footer">

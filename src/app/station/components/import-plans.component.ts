@@ -42,6 +42,8 @@ export interface ImportResult {
 })
 export class ImportPlansComponent extends ComponentBase implements OnInit {
     xml: string;
+    fileName: string;
+    fileError: string;
 
     constructor(public activeModal: NgbActiveModal,
                 private moduleService: ModuleService,
@@ -50,6 +52,30 @@ export class ImportPlansComponent extends ComponentBase implements OnInit {
     }
 
     ngOnInit(): void {
+    }
+
+    onFileSelected(event: Event) {
+        this.fileError = null;
+
+        const input = event.target as HTMLInputElement;
+        const file = input.files && input.files.length > 0 ? input.files[0] : null;
+        if (!file) {
+            return;
+        }
+
+        this.fileName = file.name;
+        const reader = new FileReader();
+        reader.onload = () => {
+            this.xml = typeof reader.result === 'string' ? reader.result : '';
+            if (!this.xml) {
+                this.fileError = 'The selected file is empty.';
+            }
+        };
+        reader.onerror = () => {
+            this.xml = null;
+            this.fileError = 'Unable to read the selected file.';
+        };
+        reader.readAsText(file);
     }
 
     importPlans() {
@@ -112,6 +138,6 @@ export class ImportPlansComponent extends ComponentBase implements OnInit {
     }
 
     get canImport() {
-        return this.xml;
+        return !!this.xml && this.xml.trim().length > 0;
     }
 }

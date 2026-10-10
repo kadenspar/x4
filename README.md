@@ -1,8 +1,8 @@
 # X4: Foundations Utilities & Database
 
-Unofficial companion tools and reference data for **X4: Foundations**, with an Android build for planning stations and fleets away from the game.
+Unofficial companion tools and reference data for **X4: Foundations**, available as a privacy-focused website and Android app.
 
-The current Android branch is updated for **X4 9.00** data and includes the station calculator, fleet builder, and browsable ship/equipment/module/ware database.
+The website (`dev`) and Android (`android`) branches use **X4 9.00** data and includes the station calculator, fleet builder, and browsable ship/equipment/module/ware database.
 
 ## Features
 
@@ -14,7 +14,7 @@ The current Android branch is updated for **X4 9.00** data and includes the stat
 
 - **Fleet Builder**
   - Add multiple ships and configure compatible engines, thrusters, shields, weapons and turrets.
-  - Add missiles, drones, countermeasures and software.
+  - Add missiles, drones, countermeasures, deployables and software.
   - Choose the production method where multiple recipes exist.
   - Estimate configured fleet purchase cost and total build resources.
   - Save fleet plans locally and override equipment slot groups individually.
@@ -23,17 +23,23 @@ The current Android branch is updated for **X4 9.00** data and includes the stat
   - Browse ships, equipment, station modules, wares, factions and races.
   - Ship/equipment compatibility is based on extracted X4 connection tags.
 
+- **Privacy-focused website**
+  - No analytics, tracking pixels, advertising scripts, or external runtime resources.
+  - Fleet plans and station layouts are saved locally in browser storage; no account or plan upload.
+  - Security headers restrict network connections to the website origin.
+  - The hosting provider may still retain standard infrastructure access logs.
+
 - **Android**
   - The Angular app is packaged with Capacitor.
   - Saved layouts and fleet plans remain in local WebView storage.
   - Google Analytics is disabled in the Android build.
   - GitHub Actions can build a debug APK without requiring Android Studio.
 
-See [ANDROID.md](ANDROID.md) for build/install instructions.
+See [ANDROID.md](ANDROID.md) for build/install instructions and [docs/privacy.md](docs/privacy.md) for website privacy details.
 
 ## X4 9.00 data
 
-The Android app's current game data is generated from the **9.0-Empire** extraction in [slepher/x4-station-calculator](https://github.com/slepher/x4-station-calculator), pinned to commit:
+The current game data is generated from the **9.0-Empire** extraction in [slepher/x4-station-calculator](https://github.com/slepher/x4-station-calculator), pinned to commit:
 
 `cb43e7fbbd2b64f173c8f127483f5f767ac11e07`
 

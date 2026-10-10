@@ -1,8 +1,7 @@
 import { Component } from '@angular/core';
-import { NavigationEnd, Router } from '@angular/router';
+import { Router } from '@angular/router';
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
-import { AnalyticsService } from './google-analytics/services/analytics.service';
 
 @Component({
   selector: 'app-root',
@@ -11,12 +10,7 @@ import { AnalyticsService } from './google-analytics/services/analytics.service'
 export class AppComponent {
   theme = 'dark';
 
-  constructor(private router: Router, analytics: AnalyticsService) {
-    router.events.subscribe(event => {
-      if (event instanceof NavigationEnd) {
-        analytics.pageView({ path: event.urlAfterRedirects });
-      }
-    });
+  constructor(private router: Router) {
 
     if (Capacitor.isNativePlatform()) {
       void App.addListener('backButton', ({ canGoBack }) => {
